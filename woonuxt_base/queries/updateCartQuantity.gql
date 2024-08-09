@@ -1,0 +1,9 @@
+#import "~/queries/fragments/CartFragment.gql"
+
+mutation UpDateCartQuantity($key: ID!, $quantity: Int!) {
+  updateItemQuantities(input: { items: { key: $key, quantity: $quantity } }) {
+    cart {
+      ...CartFragment
+    }
+  }
+}

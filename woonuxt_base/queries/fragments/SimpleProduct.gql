@@ -1,0 +1,59 @@
+fragment SimpleProduct on SimpleProduct {
+  price
+  rawPrice: price(format: RAW)
+  slug
+  date
+  regularPrice
+  rawRegularPrice: regularPrice(format: RAW)
+  salePrice
+  rawSalePrice: salePrice(format: RAW)
+  stockStatus
+  stockQuantity
+  averageRating
+  weight
+  length
+  width
+  height
+  reviewCount
+  image {
+    sourceUrl
+    cartSourceUrl: sourceUrl(size: THUMBNAIL)
+    altText
+    title
+  }
+  galleryImages {
+    nodes {
+      sourceUrl
+      altText
+      title
+    }
+  }
+
+    addons {
+        description
+        fieldName
+        name
+        price
+        priceType
+        required
+        titleFormat
+        type
+        ... on AddonMultipleChoice {
+          description
+          options {
+            label
+            price
+            priceType
+          }
+        }
+        ... on AddonCheckbox {
+          description
+          name
+          options {
+            label
+            price
+            priceType
+          }
+        }
+  }
+}

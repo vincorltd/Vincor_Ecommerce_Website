@@ -10,9 +10,9 @@ export default <Partial<Config>>{
     extend: {
       colors: {
         primary: {
-          light: '#AE7DDD',
-          DEFAULT: process.env.PRIMARY_COLOR || '#7F54B2',
-          dark: '#754fa3',
+          light: '#2947B4',
+          DEFAULT: process.env.PRIMARY_COLOR || '#2947B4',
+          dark: '#192551',
         },
       },
       screens: {

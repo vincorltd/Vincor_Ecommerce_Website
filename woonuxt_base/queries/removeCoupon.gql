@@ -1,0 +1,9 @@
+#import "~/queries/fragments/CartFragment.gql"
+
+mutation removeCoupons($codes: [String]!) {
+  removeCoupons(input: { codes: $codes }) {
+    cart {
+      ...CartFragment
+    }
+  }
+}

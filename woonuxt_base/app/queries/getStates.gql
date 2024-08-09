@@ -1,7 +1,0 @@
-query getStates($country: CountriesEnum = IE) {
-  countryStates(country: $country) {
-    code
-    name
-  }
-  allowedCountries
-}
