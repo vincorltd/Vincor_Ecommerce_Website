@@ -195,7 +195,6 @@ select {
 }
 
 img.skeleton {
-  animation: skelaton 2000ms infinite cubic-bezier(0.4, 0, 0.2, 1);
   background-image: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
 }

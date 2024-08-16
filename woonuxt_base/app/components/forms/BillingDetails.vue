@@ -36,7 +36,7 @@ const { allowedCountries, countryStates } = await GqlGetStates({ country: billin
 
     <div v-if="isBillingAddressEnabled" class="w-full">
       <label for="city">{{ $t('messages.billing.city') }}</label>
-      <input v-model="billing.city" placeholder="New York" autocomplete="locality" type="text" required />
+      <input v-model="billing.city" placeholder="Chicago" autocomplete="locality" type="text" required />
     </div>
 
     <div v-if="isBillingAddressEnabled" class="w-full">

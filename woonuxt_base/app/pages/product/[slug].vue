@@ -61,14 +61,62 @@ const updateSelectedVariations = (variations: Attribute[]): void => {
   variation.value = variations;
 };
 
-const stockStatus = computed(() => {
-  if (isVariableProduct.value) return activeVariation.value?.stockStatus || StockStatusEnum.OUT_OF_STOCK;
-  return type.value?.stockStatus || StockStatusEnum.OUT_OF_STOCK;
-});
-const disabledAddToCart = computed(() => {
-  if (isSimpleProduct.value) return !type.value || stockStatus.value === StockStatusEnum.OUT_OF_STOCK || isUpdatingCart.value;
-  return !type.value || stockStatus.value === StockStatusEnum.OUT_OF_STOCK || !activeVariation.value || isUpdatingCart.value;
-});
+const stockStatus = computed(() => type.value?.stockStatus || StockStatusEnum.OUT_OF_STOCK);
+const disabledAddToCart = computed(() => !type.value || stockStatus.value === StockStatusEnum.ON_BACKORDER || isUpdatingCart.value);
+
+const selectedOptions = ref([]) as Ref<ProductAddonOption>;
+const regularProductPrice = computed(() => parseInt(type.value.rawRegularPrice));
+
+function calculateAddonTotalPrice() {
+  let totalPrice = 0;
+
+  for (const selectedOption of selectedOptions.value) {
+    totalPrice += selectedOption.price;
+  }
+
+  return totalPrice;
+}
+
+function calculateTotalPrice() {
+  const addonTotalPrice = calculateAddonTotalPrice();
+  const regularPrice = regularProductPrice.value || 0;
+
+  return addonTotalPrice + regularPrice;
+}
+
+function convertData(inputData:any) {
+  // valueText is the value used for multipleChoice type, It's a constructed type.
+  return inputData.reduce((accumulator, { fieldName, label, valueText }) => {
+    const entry =  accumulator.get(fieldName) || { fieldName, value: valueText ? '' : [] };
+    if(valueText) {
+      entry.value = valueText;
+    } else {
+      entry.value.push(valueText ? valueText : label);
+    }
+    accumulator.set(fieldName, entry);
+    return accumulator;
+  }, new Map()).values();
+}
+
+function getMultipleChoiceTypeOptions(addon: any) {
+  return addon.options.map((o: any, index) => {
+    return {
+      ...o,
+      valueText: `${o.label}-${index+1}`,
+      fieldName: addon.fieldName,
+      fieldType: addon.type
+    }
+  });
+}
+
+
+function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
+    return allAddons.map((addon: any) => ({
+        fieldName: addon.fieldName,
+        value: (selectedAddons.find((selectedAddon: any) => selectedAddon.fieldName === addon.fieldName) || { value: '' }).value,
+    }));
+}
+
 </script>
 
 <template>
@@ -93,7 +141,6 @@ const disabledAddToCart = computed(() => {
               {{ type.name }}
               <WPAdminLink :link="`/wp-admin/post.php?post=${product.databaseId}&action=edit`">Edit</WPAdminLink>
             </h1>
-            <StarRating :rating="product.averageRating || 0" :count="product.reviewCount || 0" v-if="storeSettings.showReviews" />
           </div>
           <ProductPrice class="text-xl" :sale-price="type.salePrice" :regular-price="type.regularPrice" />
         </div>
@@ -113,7 +160,62 @@ const disabledAddToCart = computed(() => {
 
         <hr />
 
-        <form @submit.prevent="addToCart(selectProductInput)">
+        <form @submit.prevent="{
+            const addons = [...convertData(JSON.parse(JSON.stringify(selectedOptions)))];
+            const addonsWithCheckBoxType = mergeArrayValuesForCheckboxType(addons, JSON.parse(JSON.stringify(product.addons)));
+            addToCart({...selectProductInput, addons: addonsWithCheckBoxType });
+          }">
+          <div class="pt-6 flex flex-col" v-if="product.addons">
+            <div class="flex flex-col gap-4 pb-4" v-for="(addon, index) in product.addons" :key="index">
+              <label>{{ addon.name }}:<span class=" text-base italic text-gray-700 py-2">{{ addon.required ? ' ( Selection Required )' : '' }}</span></label>
+
+              <div v-if="addon.type === 'MULTIPLE_CHOICE'">
+                <select class="select select-bordered font-semibold text-base w-full" v-model="selectedOptions[index]" :selected="addon.name" :required="addon.required">
+                  <option disabled selected>{{ addon.name }}:</option>
+                  <option class="font-semibold text-base" v-for="(option, optionIndex) in getMultipleChoiceTypeOptions(addon)" :key="option.label" :value="option">
+                    {{ option.label }} -{{ optionIndex }}
+                    <p class="text-red-500" v-if="option.price">(+${{ option.price }})</p>
+                  </option>
+                </select>
+
+              </div>
+
+              <div v-if="addon.type === 'CHECKBOX'">
+                <div v-for="option in addon.options" :key="option.label">
+                  <input type="checkbox" v-model="selectedOptions" :value="{...option, fieldName: addon.fieldName, fieldType: addon.type}" class="mr-2" />
+                  {{ option.label }}
+                  <p class="text-red-500" v-if="option.price">(+${{ option.price }})</p>
+                  <label class="flex items-center"> </label>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col">
+              <hr class="" />
+              <div v-if="selectedOptions.some((option) => option.price)">
+                <div class="my-2">
+                  <h2 class="text-base font-bold">Product:</h2>
+                  <p class="font-semibold text-base text-gray-700">
+                    ({{ quantity }}) - {{ product.name }} - <span class="text-lg text-red-400">{{ `$` + regularProductPrice }}</span>
+                  </p>
+                  <hr class="my-2" />
+                  <div class="flex flex-col gap-2 pt-4">
+                    <h2 class="text-base font-bold">Selected Options:</h2>
+                    <ul>
+                      <li class=" text-gray-700 font-semibold text-base" v-for="(option, index) in selectedOptions" :key="index">{{ option.label }} - <span class="text-red-400">${{ option.price }}</span></li>
+                    </ul>
+                  </div>
+                  <p class="text-base font-bold text-black pt-4" v-if="selectedOptions.some((option) => option.price)">
+                    Total Selected Options: <span class="text-red-600">${{ calculateAddonTotalPrice() }}</span>
+                  </p>
+                </div>
+              </div>
+              <div v-if="selectedOptions.some((option) => option.price)">
+                <hr class="my-4" />
+                <p class="font-bold text-xl text-red-600 text-right">Total: ${{ calculateTotalPrice() * quantity }}</p>
+                <hr class="my-4" />
+              </div>
+            </div>
+          </div>
           <AttributeSelections
             v-if="product.type == 'VARIABLE' && product.attributes && product.variations"
             class="mt-4 mb-8"
@@ -152,13 +254,12 @@ const disabledAddToCart = computed(() => {
         </div>
 
         <div class="flex flex-wrap gap-4">
-          <WishlistButton :product />
-          <ShareButton :product />
+          <WishlistButton :product="product" />
         </div>
       </div>
     </div>
     <div v-if="product.description || product.reviews" class="my-32">
-      <ProductTabs :product />
+      <ProductTabs :productSku="product.sku" />
     </div>
     <div class="my-32" v-if="product.related && storeSettings.showRelatedProducts">
       <div class="mb-4 text-xl font-semibold">{{ $t('messages.shop.youMayLike') }}</div>
