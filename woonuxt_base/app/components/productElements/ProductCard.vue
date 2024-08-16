@@ -42,6 +42,7 @@ const imagetoDisplay = computed<string>(() => {
       <SaleBadge :node="node" class="absolute top-2 right-2" />
       <NuxtImg
         v-if="imagetoDisplay"
+        provider="netlify"
         :width="imgWidth"
         :height="imgHeight"
         :src="imagetoDisplay"
