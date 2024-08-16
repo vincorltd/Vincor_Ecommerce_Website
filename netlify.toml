@@ -5,5 +5,4 @@
 [build]
   command = "nuxt generate"
 
-[images]
-  remote_images = ["https://vincor.com/.*"]
+
