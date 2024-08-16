@@ -47,9 +47,7 @@ const imagetoDisplay = computed<string>(() => {
         :src="imagetoDisplay"
         :alt="node.image?.altText || node.name || 'Product image'"
         :title="node.image?.title || node.name"
-        :loading="index <= 3 ? 'eager' : 'lazy'"
-        placeholder
-        placeholder-class="blur-xl"
+
 class="skeleton"
 
          />
