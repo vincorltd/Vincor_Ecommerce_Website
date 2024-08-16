@@ -34,6 +34,13 @@ export default defineNuxtConfig({
     },
   },
 
+  image: {
+    provider: 'netlify',
+    netlify: {
+      baseURl: process.env.NUXT_IMAGE_DOMAINS
+    }
+},
+
   alias: {
     '#constants': resolve('./app/constants'),
     '#woo': '../.nuxt/gql/default',
