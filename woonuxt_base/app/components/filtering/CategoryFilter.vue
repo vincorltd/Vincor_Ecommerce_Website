@@ -16,7 +16,7 @@ const filterProductsByCategory = (categoryId) => {
 
 onMounted(async () => {
   try {
-    const response = await $fetch('https://vincor.com/graphql', {
+    const response = await $fetch('https://satchart.com/graphql', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
