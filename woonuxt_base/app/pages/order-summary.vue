@@ -69,7 +69,7 @@ useSeoMeta({
     class="w-full min-h-[600px] flex items-center p-4 text-gray-800 md:bg-white md:rounded-xl md:mx-auto md:shadow-lg md:my-24 md:mt-8 md:max-w-3xl md:p-16 flex-col">
     <LoadingIcon v-if="!isLoaded" class="flex-1" />
     <template v-else>
-      <div class="w-full">
+      <div v-if="order" class="w-full">
         <template v-if="isSummaryPage">
           <div class="flex items-center gap-4">
             <NuxtLink
@@ -172,11 +172,11 @@ useSeoMeta({
           </div>
         </div>
       </div>
-      <div v-else-if="errorMessage" class="flex flex-col items-center justify-center flex-1 w-full gap-4 text-center">
+      <!-- <div v-else-if="errorMessage" class="flex flex-col items-center justify-center flex-1 w-full gap-4 text-center">
         <Icon name="ion:sad-outline" size="96" class="text-gray-700" />
         <h1 class="text-xl font-semibold">Error</h1>
         <div v-if="errorMessage" class="text-sm text-red-500" v-html="errorMessage" />
-      </div>
+      </div> -->
     </template>
   </div>
 </template>

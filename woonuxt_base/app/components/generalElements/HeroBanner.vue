@@ -11,7 +11,7 @@
       fit="outside"
       sizes="sm:100vw lg:1400px" />
     
-    <div class="container bg-gradient-to-l flex flex-col from-gray-100 inset-0 text-white absolute items-start justify-center md:bg-none md:p-12 lg:p-24">
+    <div class="container  flex flex-col from-gray-100 inset-0 text-white absolute items-start justify-center md:bg-none md:p-12 lg:p-24">
       <h2 class="font-bold text-lg md:mb-4 lg:text-3xl">Check out our extensive catalog</h2>
 
       <NuxtLink class="rounded-xl font-bold bg-[#253779] text-white py-4 px-8 hover:bg-[#2947B4]" to="/products">Shop now</NuxtLink>
