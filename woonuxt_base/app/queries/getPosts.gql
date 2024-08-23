@@ -1,0 +1,23 @@
+query getAllPosts($after: String) {
+  posts(first: 100, after: $after) {
+    edges {
+      node {
+        id
+        content
+        title
+        tags {
+          edges {
+            node {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+  }
+}

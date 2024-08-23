@@ -3,26 +3,21 @@ const { cart, isUpdatingCart } = useCart();
 </script>
 
 <template>
-  <aside v-if="cart" class="bg-white rounded-lg shadow-lg mb-8 w-full min-h-[280px] p-4 sm:p-8 relative md:max-w-md md:top-32 md:sticky">
+  <aside v-if="cart" class="bg-white rounded-lg shadow-lg mb-8 w-full min-h-[300px] p-4 sm:p-8 relative md:max-w-sm lg:max-w-xl md:top-36 md:sticky">
     <h2 class="mb-6 text-xl font-semibold leading-none">{{ $t('messages.shop.orderSummary') }}</h2>
 
-    <ul class="flex flex-col gap-4 overflow-y-auto">
+    <ul class="flex flex-col gap-12 mb-16 -mr-2 overflow-y-auto">
       <CartCard v-for="item in cart.contents.nodes" :key="item.key" :item />
     </ul>
 
-    <AddCoupon class="my-8" />
+    
 
     <div class="grid gap-1 text-sm font-semibold text-gray-500">
       <div class="flex justify-between">
         <span>{{ $t('messages.shop.subtotal') }}</span>
         <span class="text-gray-700 tabular-nums" v-html="cart.subtotal" />
       </div>
-      <div class="flex justify-between">
-        <span>{{ $t('messages.general.shipping') }}</span>
-        <span class="text-gray-700 tabular-nums">
-          {{ parseFloat(cart.shippingTotal) > 0 ? '+' : '' }} {{ cart.shippingTotal }}
-        </span>
-      </div>
+
       <Transition name="scale-y" mode="out-in">
         <div v-if="cart && cart.appliedCoupons" class="flex justify-between">
           <span>{{ $t('messages.shop.discount') }}</span>

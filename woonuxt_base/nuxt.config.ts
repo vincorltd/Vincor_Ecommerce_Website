@@ -23,16 +23,25 @@ export default defineNuxtConfig({
 
   components: [{ path: resolve('./app/components'), pathPrefix: false }],
 
-  modules: ['woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', '@nuxt/image', '@nuxtjs/i18n'],
+  modules: ['woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', 
+    
+    '@nuxt/image', '@nuxtjs/i18n'],
 
   'graphql-client': {
     clients: {
       default: {
-        host: process.env.GQL_HOST || 'http://localhost:4000/graphql',
-        corsOptions: { mode: 'cors', credentials: 'include' },
+        host: process.env.GQL_HOST || 'http://vincor.com/graphql',
+        // corsOptions: { mode: 'cors', credentials: 'include' },
       },
     },
   },
+
+  image: {
+    provider: "netlify",
+    domains: ["vincor.com"],
+  },
+
+
 
   alias: {
     '#constants': resolve('./app/constants'),

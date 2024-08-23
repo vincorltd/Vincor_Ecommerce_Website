@@ -5,7 +5,7 @@ const { info } = defineProps({ info: { type: Object as PropType<Product>, requir
 
 const title = info.name;
 const canonical = `${frontEndUrl}${path}`;
-const siteName = process.env.SITE_TITLE ?? 'WooNuxt';
+const siteName = process.env.SITE_TITLE ?? 'Vincor Ltd. - Earth Station Antenna Services and Satcom Product Sales';
 
 const img = useImage();
 const imagePrefix = isDev ? '' : frontEndUrl;

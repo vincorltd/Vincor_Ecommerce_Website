@@ -12,6 +12,9 @@ const productType = computed(() => (item.variation ? item.variation?.node : item
 const productSlug = computed(() => `/product/${decodeURIComponent(item.product.node.slug)}`);
 const isLowStock = computed(() => (productType.value.stockQuantity ? productType.value.lowStockAmount >= productType.value.stockQuantity : false));
 
+const extraData = JSON.parse(JSON.stringify(item.extraData));
+const itemAddons =  computed(() => JSON.parse(extraData ? extraData.find(el => el.key === 'addons').value : []));
+
 const removeItem = () => {
   updateItemQuantity(item.key, 0);
 };
@@ -50,6 +53,10 @@ const salePercentage = computed(() => {
           <span v-if="isLowStock" class="text-[10px] border-yellow-200 leading-none bg-yellow-100 inline-block p-0.5 rounded text-orange-500 border">Low Stock</span>
         </div>
         <ProductPrice class="mt-1 text-xs" :sale-price="productType.salePrice" :regular-price="productType.regularPrice" />
+        <p class=" pt-2 text-sm font-semibold">Addons:</p>
+<ul class="item-addons ">
+          <li v-for="addon, index in itemAddons" key="index" class="">{{ addon.value }} - ${{ addon.price }}</li>
+        </ul>
       </div>
       <div class="inline-flex gap-2 flex-col items-end">
         <QuantityInput :item />
@@ -63,3 +70,23 @@ const salePercentage = computed(() => {
     </div>
   </SwipeCard>
 </template>
+<style scoped lang="postcss">
+/* always show up and down buttons on number input */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.removeItem {
+  @apply hidden md:inline-block;
+}
+
+.item-addons {
+  font-size: 14px;
+  list-style: auto;
+  padding-left: 16px;
+  padding-top: 16px;
+  color: inherit;
+  word-break: break-word;
+}
+</style>
