@@ -30,7 +30,7 @@ export default defineNuxtConfig({
   'graphql-client': {
     clients: {
       default: {
-        host: process.env.GQL_HOST || 'https://satchart.com/graphql',
+        host: process.env.GQL_HOST || 'http://satchart.com/graphql',
         // corsOptions: { mode: 'cors', credentials: 'include' },
       },
     },
@@ -39,7 +39,7 @@ export default defineNuxtConfig({
   image: {
     provider: "netlify",
     domains: ["vincor.com"],
-  },
+  }, // remove on local ONLY
 
 
 
