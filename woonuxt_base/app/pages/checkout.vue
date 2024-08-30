@@ -23,17 +23,17 @@ const card = ref();
 const elms = ref();
 
 // Initialize Stripe.js
-onBeforeMount(() => {
-  if (!stripeKey) {
-    console.error('Stripe key is not set');
-    return;
-  }
+// onBeforeMount(() => {
+//   // if (!stripeKey) {
+//   //   console.error('Stripe key is not set');
+//   //   return;
+//   // }
 
-  const stripePromise = loadStripe(stripeKey);
-  stripePromise.then(() => {
-    stripeLoaded.value = true;
-  });
-});
+//   // const stripePromise = loadStripe(stripeKey);
+//   // stripePromise.then(() => {
+//   //   stripeLoaded.value = true;
+//   // });
+// });
 
 const payNow = async () => {
   buttonText.value = t('messages.general.processing');

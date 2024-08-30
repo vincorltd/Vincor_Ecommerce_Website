@@ -9,6 +9,9 @@ const order = ref(selectedOrder.value.order);
 watch([orderby, order], () => {
   setOrderQuery(orderby.value, order.value);
 });
+
+
+
 </script>
 
 <template>
@@ -22,8 +25,6 @@ watch([orderby, order], () => {
     <select v-model="orderby" class="bg-white rounded-l-none" aria-label="Order by">
       <option value="date">{{ $t('messages.general.latest') }}</option>
       <option value="alphabetically">{{ $t('messages.general.alphabetically') }}</option>
-      <option value="price">{{ $t('messages.shop.price') }}</option>
-      <option v-if="storeSettings.showReviews" value="rating">{{ $t('messages.shop.rating') }}</option>
       <option value="discount">{{ $t('messages.shop.discount') }}</option>
     </select>
   </div>
