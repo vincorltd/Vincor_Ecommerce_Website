@@ -11,6 +11,7 @@
     "serve": "nuxi generate && npx serve .output/public -l 8080"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.1.5",
     "@stripe/stripe-js": "^4.3.0",
     "@vueform/slider": "^2.1.10",
     "@vueuse/core": "^11.0.3"
