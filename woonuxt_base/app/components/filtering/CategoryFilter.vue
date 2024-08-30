@@ -179,32 +179,30 @@ const parentCategorySelected = (category) => {
 const sortedCategories = computed(() => {
   return [...categories.value].sort((a, b) => a.name.localeCompare(b.name));
 });
-
-
 </script>
 
 <template>
   <div v-if="categories.length">
-    <div class="  cursor-pointer flex font-semibold mt-8 justify-between items-center" @click="isOpen = !isOpen">
+    <div class="cursor-pointer flex font-semibold mt-8 justify-between items-center" @click="isOpen = !isOpen">
       <span>{{ label || $t('messages.shop.category', 2) }}</span>
       <Icon name="ion:chevron-down-outline" class="transform transition-transform duration-300" :class="isOpen ? 'rotate-180' : ''" />
     </div>
     <transition name="fade">
-      <div v-show="isOpen" class="mt-3">
+      <div v-show="isOpen" class="mt-3 category-container">
         <div v-for="category in sortedCategories" :key="category.id" class="category-block">
           <div @click="() => { parentCategorySelected(category); toggleVisibility(category); }" class="parent-category">
             {{ category.name }}
             <Icon name="ion:chevron-forward-outline" class="transform transition-transform duration-300" :class="category.showChildren ? 'rotate-90' : ''" />
           </div>
           <transition name="fade">
-            <div v-show="category.showChildren" class="child-categories py-2 ">
+            <div v-show="category.showChildren" class="child-categories py-2">
               <div v-for="child in category.children" :key="child.id">
-                <input  :id="child.slug" class="mr-2" 
+                <input :id="child.slug" class="mr-2" 
                   :checked="selectedTerms.includes(child.slug)" 
                   type="checkbox" 
                   :value="child.slug" 
                   @change="() => { checkboxChanged(child.slug, category.slug); }">
-                <label :for="child.slug" class="">{{ child.name }}
+                <label :for="child.slug">{{ child.name }}
                   <span v-if="showCount">({{ child.count || 0 }})</span>
                 </label>
               </div>
@@ -217,28 +215,59 @@ const sortedCategories = computed(() => {
 </template>
 
 <style scoped>
+.category-container {
+  max-height: 750px; /* Increased the maximum height */
+  overflow-y: auto; /* Enable vertical scrolling */
+  padding-right: 10px; /* Add some padding to prevent the scrollbar from overlapping the content */
+}
+
+/* Custom Scrollbar Styles */
+.category-container::-webkit-scrollbar {
+  width: 6px; /* Width of the scrollbar */
+}
+
+.category-container::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Background of the scrollbar track */
+  border-radius: 10px; /* Rounded corners for the track */
+}
+
+.category-container::-webkit-scrollbar-thumb {
+  background: #888; /* Color of the scrollbar thumb */
+  border-radius: 10px; /* Rounded corners for the thumb */
+}
+
+.category-container::-webkit-scrollbar-thumb:hover {
+  background: #555; /* Color of the scrollbar thumb on hover */
+}
+
 .category-block {
   margin-bottom: 5px;
 }
+
 .parent-category {
   cursor: pointer;
   padding: 10px;
   background-color: #f9f9f9;
   border: 1px solid #ddd;
 }
+
 .child-categories {
   padding-left: 20px;
   background-color: #f0f0f0;
 }
+
 .chevron {
   transition: transform 0.3s ease;
 }
+
 .rotate-90 {
   transform: rotate(90deg);
 }
+
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.5s;
 }
+
 .fade-enter, .fade-leave-to {
   opacity: 0;
 }
