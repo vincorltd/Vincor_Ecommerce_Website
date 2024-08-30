@@ -36,6 +36,10 @@ export default defineNuxtConfig({
     },
   },
 
+  image: {
+    provider: "netlify",
+    domains: ["vincor.com"],
+  },
 
 
 
