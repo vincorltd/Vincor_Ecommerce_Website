@@ -38,9 +38,9 @@ export default defineNuxtConfig({
 
   image: {
     provider: "netlify",
-    domains: ["vincor.com"],
-  }, // remove on local ONLY
 
+    domains: ["satchart.com"],
+  },
 
 
   alias: {
