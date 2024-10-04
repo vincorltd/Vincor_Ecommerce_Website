@@ -195,13 +195,16 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
                 <div class="my-2">
                   <h2 class="text-base font-bold">Product:</h2>
                   <p class="font-semibold text-base text-gray-700">
-                    ({{ quantity }}) - {{ product.name }} - <span class="text-lg text-red-400">{{ `$` + regularProductPrice }}</span>
+                    ({{ quantity }}) - {{ product.name }} <span v-if="regularProductPrice && !isNaN(regularProductPrice)">- <span class="text-lg text-red-400">{{ `$` + regularProductPrice }}</span></span>
                   </p>
                   <hr class="my-2" />
                   <div class="flex flex-col gap-2 pt-4">
                     <h2 class="text-base font-bold">Selected Options:</h2>
                     <ul>
-                      <li class=" text-gray-700 font-semibold text-base" v-for="(option, index) in selectedOptions" :key="index">{{ option.label }} - <span class="text-red-400">${{ option.price }}</span></li>
+                      <li class="text-gray-700 font-semibold text-base" v-for="(option, index) in selectedOptions" :key="index">
+                        {{ option.label }}
+                        <span v-if="option.price" class="text-red-400"> - ${{ option.price }}</span>
+                      </li>
                     </ul>
                   </div>
                   <p class="text-base font-bold text-black pt-4" v-if="selectedOptions.some((option) => option.price)">

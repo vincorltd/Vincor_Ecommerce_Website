@@ -6,7 +6,7 @@ const props = defineProps({
   index: { type: Number, default: 1 },
 });
 
-const imgWidth = 220;
+const imgWidth = 350;
 const imgHeight = Math.round(imgWidth * 1.125);
 
 // example: ?filter=pa_color[green,blue],pa_size[large]
@@ -51,10 +51,8 @@ const imagetoDisplay = computed<string>(() => {
         :loading="index <= 3 ? 'eager' : 'lazy'"
         placeholder
         placeholder-class="blur-xl"
-class="skeleton"
-
-         />
-        
+        class="skeleton product-image"
+      />
     </NuxtLink>
     <div class="p-2">
       <NuxtLink :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
@@ -66,12 +64,12 @@ class="skeleton"
 </template>
 
 <style lang="postcss">
-.product-card img {
-  @apply rounded-lg object-top  w-full overflow-hidden;
+.product-card .product-image {
+  @apply rounded-lg w-full overflow-hidden;
   aspect-ratio: 1/1;
-  
+  object-fit: contain;
+  object-position: center;
 }
-
 .product-card:hover {
   h2 {
     @apply text-primary;
