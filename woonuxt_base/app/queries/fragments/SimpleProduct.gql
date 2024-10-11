@@ -56,4 +56,10 @@ fragment SimpleProduct on SimpleProduct {
           }
         }
   }
-}
+        
+    productTags {
+          nodes {
+            name
+          }
+    }
+  }
