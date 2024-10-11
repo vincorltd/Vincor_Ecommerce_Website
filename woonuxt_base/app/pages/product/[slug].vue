@@ -166,7 +166,7 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
             const addonsWithCheckBoxType = mergeArrayValuesForCheckboxType(addons, JSON.parse(JSON.stringify(product.addons)));
             addToCart({...selectProductInput, addons: addonsWithCheckBoxType });
           }">
-          <div class="pt-6 flex flex-col" v-if="product.addons">
+          <div class="pt-6 flex flex-col" v-if="product.addons && product.addons.length > 0">
             <div class="flex flex-col gap-4 pb-4" v-for="(addon, index) in product.addons" :key="index">
               <label>{{ addon.name }}:<span class=" text-base italic text-gray-700 py-2">{{ addon.required ? ' ( Selection Required )' : '' }}</span></label>
 
