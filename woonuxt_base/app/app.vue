@@ -50,6 +50,8 @@ html,
 body {
   @apply bg-gray-100 text-gray-900;
   scroll-behavior: smooth;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 img {
@@ -107,6 +109,8 @@ select {
   overflow: hidden;
   opacity: 1;
 }
+
+
 
 .scale-y-enter-from,
 .scale-y-leave-to {
