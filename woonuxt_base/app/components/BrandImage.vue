@@ -4,7 +4,8 @@ const props = defineProps<{
 }>()
 
 const brandTag = computed(() => {
-  return props.product.productTags?.nodes[0]?.name || ''
+  const tag = props.product.productTags?.nodes.find(tag => /^[a-zA-Z]+$/.test(tag.name))?.name || '';
+  return tag;
 })
 
 const brandImageUrl = computed(() => {
