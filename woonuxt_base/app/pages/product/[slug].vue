@@ -154,6 +154,7 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
             <span class="text-gray-400">{{ $t('messages.shop.sku') }}: </span>
             <span>{{ product.sku || 'N/A' }}</span>
           </div>
+          <BrandImage :product="product" />
         </div>
 
         <div class="mb-8 font-light prose" v-html="product.shortDescription || product.description" />
