@@ -18,6 +18,10 @@ const attrValues = ref();
 const isSimpleProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.SIMPLE);
 const isVariableProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.VARIABLE);
 
+const hasNorsatTag = computed(() => {
+  return product.value?.productTags?.nodes?.some(tag => tag.name.toLowerCase() === 'norsat');
+});
+
 const type = computed(() => activeVariation.value || product.value);
 const selectProductInput = computed<any>(() => ({ productId: type.value?.databaseId, quantity: quantity.value })) as ComputedRef<AddToCartInput>;
 
@@ -135,9 +139,9 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
       <NuxtImg v-else class="relative flex-1 skeleton" src="/images/placeholder.jpg" :alt="product?.name || 'Product'" />
 
       <div class="lg:max-w-md xl:max-w-lg md:py-2 w-full">
-        <div class="flex justify-between mb-4">
+        <div class="flex justify-between ">
           <div class="flex-1">
-            <h1 class="flex flex-wrap items-center gap-2 mb-2 text-2xl font-sesmibold">
+            <h1 class="flex flex-wrap items-center gap-2  text-2xl font-sesmibold">
               {{ type.name }}
               <WPAdminLink :link="`/wp-admin/post.php?post=${product.databaseId}&action=edit`">Edit</WPAdminLink>
             </h1>
@@ -145,7 +149,12 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
           <ProductPrice class="text-xl" :sale-price="type.salePrice" :regular-price="type.regularPrice" />
         </div>
 
-        <div class="grid gap-2 my-8 text-sm">
+        <div class="grid gap-2  text-sm">
+          <BrandImage class="mb-2" :product="product" />
+          <div v-if="hasNorsatTag">
+  <p class="text-base font-semibold">MSRP: {{ type.regularPrice }}</p>
+  <p class="text-base text-red-600 font-semibold">Sale Price: Call for pricing</p>
+</div>
           <div class="flex items-center gap-2">
             <span class="text-gray-400">{{ $t('messages.shop.availability') }}: </span>
             <StockStatus :stockStatus @updated="mergeLiveStockStatus" />
@@ -154,7 +163,7 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
             <span class="text-gray-400">{{ $t('messages.shop.sku') }}: </span>
             <span>{{ product.sku || 'N/A' }}</span>
           </div>
-          <BrandImage :product="product" />
+          
         </div>
 
         <div class="mb-8 font-light prose" v-html="product.shortDescription || product.description" />
