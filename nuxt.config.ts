@@ -18,6 +18,9 @@ export default defineNuxtConfig({
       interval: 1000,
       failOnError: false,
     },
+    routeRules: {
+      '/wp-admin/': { redirect: 'https://satchart.com/wp-admin/' },
+    },
   },
 
   devtools: {
