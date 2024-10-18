@@ -11,35 +11,42 @@
         {{ post.title }}
       </button>
       <button
+        v-if="hasShowPdfTag"
         type="button"
         :class="show === tabPosts.length ? 'active' : ''"
         @click.prevent="showTab(tabPosts.length)"
-        v-if="fileExists && pdfUrl"
       >
         Datasheet
       </button>
-        </nav>
-        <div class="tab-contents" v-if="fileExists">
-      <div class="font-light mt-8 prose" v-html="activeTab" v-if="show < tabPosts.length" />
-      <iframe class="w-full min-h-[1000px]" :src="pdfUrl" v-else-if="fileExists" />
-        </div>
+    </nav>
+    <div class="tab-contents">
+      <div v-if="show < tabPosts.length" class="font-light mt-8 prose" v-html="activeTab" />
+      <DatasheetTab v-else-if="hasShowPdfTag" :product="product" />
+    </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import DatasheetTab from './DatasheetTab.vue'; // Import the DatasheetTab component
 
-const props = defineProps({
-  productSku: {
-    type: String,
-    required: true,
-  },
-});
+// Define the props type
+interface Props {
+  product: Product;
+  productSku: string;
+}
+
+// Use the defined props type
+const props = defineProps<Props>();
 
 const posts = ref([]);
 const activeTab = ref('');
 const show = ref(0);
-const fileExists = ref(false);
+
+// Computed property to check for the specific tag "show-pdf"
+const hasShowPdfTag = computed(() => {
+  return props.product.productTags?.nodes.some(tag => tag.name === 'show-pdf') || false;
+});
 
 const fetchPosts = async (after = null) => {
   const response = await fetch('https://satchart.com/graphql', {
@@ -92,9 +99,13 @@ const fetchPosts = async (after = null) => {
 };
 
 const tabPosts = computed(() => {
-  return posts.value.filter(post => post.tags.includes(props.productSku)).sort((a, b) => {
-    if (a.title === 'Datasheet') return 1;
-    if (b.title === 'Datasheet') return -1;
+  const uniquePosts = new Map();
+  posts.value.forEach(post => {
+    if (post.tags.includes(props.productSku)) {
+      uniquePosts.set(post.title, post);
+    }
+  });
+  return Array.from(uniquePosts.values()).sort((a, b) => {
     if (a.title === 'Specifications') return -1;
     if (b.title === 'Specifications') return 1;
     return 0;
@@ -105,36 +116,19 @@ const showTab = (index) => {
   show.value = index;
   if (index < tabPosts.value.length) {
     activeTab.value = tabPosts.value[index].content;
-  } else if (index === tabPosts.value.length && fileExists.value) {
-    activeTab.value = '';
+  } else {
+    activeTab.value = ''; // Ensure activeTab is cleared if no valid tab is selected
   }
 };
 
-const pdfUrl = computed(() => {
-  const sku = props.productSku;
-  return `https://files.vincor.com/${sku}.pdf`;
-});
 
-const checkPdfExists = async () => {
-  try {
-    const response = await fetch(pdfUrl.value, { 
-      method: 'HEAD',
-      mode: 'no-cors'
-    });
-    fileExists.value = true; // If we reach this point, assume the file exists
-  } catch (error) {
-    console.error("Error checking PDF existence:", error);
-    fileExists.value = false;
-  }
-};
 
 onMounted(async () => {
   await fetchPosts();
-  await checkPdfExists();
+  console.log('Fetched Posts:', posts.value); // Debugging log
+  console.log('Tab Posts:', tabPosts.value); // Debugging log
   if (tabPosts.value.length > 0) {
     showTab(0);
-  } else if (fileExists.value) {
-    show.value = tabPosts.value.length;
   }
 });
 </script>

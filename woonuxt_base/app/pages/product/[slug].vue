@@ -272,7 +272,7 @@ function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
       </div>
     </div>
     <div v-if="product.description || product.reviews" class="my-32">
-      <ProductTabs :productSku="product.sku" />
+      <ProductTabs :productSku="product.sku" :product="product" />
     </div>
     <div class="my-32" v-if="product.related && storeSettings.showRelatedProducts">
       <div class="mb-4 text-xl font-semibold">{{ $t('messages.shop.youMayLike') }}</div>
