@@ -7,14 +7,14 @@ const { arraysEqual, formatArray, checkForVariationTypeOfAny } = useHelpers();
 const { addToCart, isUpdatingCart } = useCart();
 const slug = route.params.slug as string;
 
-const { data } = (await useAsyncGql('getProduct', { slug })) as { data: { value: { product: Product } } };
-const product = ref<Product>(data?.value?.product);
-
+const product = ref<Product | null>(null);
 const quantity = ref<number>(1);
 const activeVariation = ref<Variation | null>(null);
 const variation = ref<Attribute[]>([]);
 const indexOfTypeAny = ref<number[]>([]);
 const attrValues = ref();
+const selectedOptions = ref([]) as Ref<ProductAddonOption>;
+
 const isSimpleProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.SIMPLE);
 const isVariableProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.VARIABLE);
 
@@ -25,74 +25,29 @@ const hasNorsatTag = computed(() => {
 const type = computed(() => activeVariation.value || product.value);
 const selectProductInput = computed<any>(() => ({ productId: type.value?.databaseId, quantity: quantity.value })) as ComputedRef<AddToCartInput>;
 
-const mergeLiveStockStatus = (payload: Product): void => {
-  product.value.stockStatus = payload.stockStatus ?? product.value?.stockStatus;
-
-  payload.variations?.nodes?.forEach((variation: Variation, index: number) => {
-    if (product.value?.variations?.nodes[index]) {
-      product.value.variations.nodes[index].stockStatus = variation.stockStatus;
-    }
-  });
-};
-
-onMounted(async () => {
-  try {
-    const { product } = await GqlGetStockStatus({ slug });
-    if (product) mergeLiveStockStatus(product as Product);
-  } catch (error: any) {
-    const errorMessage = error?.gqlErrors?.[0].message;
-    if (errorMessage) console.error(errorMessage);
-  }
-  if (product.value.variations) indexOfTypeAny.value.push(...checkForVariationTypeOfAny(product.value));
-});
-
-const updateSelectedVariations = (variations: Attribute[]): void => {
-  if (!product.value.variations) return;
-
-  attrValues.value = variations.map((el) => ({ attributeName: el.name, attributeValue: el.value }));
-  const cloneArray = JSON.parse(JSON.stringify(variations));
-  const getActiveVariation = product.value.variations?.nodes.filter((variation: any) => {
-    // If there is any variation of type ANY set the value to ''
-    if (variation.attributes) {
-      indexOfTypeAny.value.forEach((index) => (cloneArray[index].value = ''));
-      return arraysEqual(formatArray(variation.attributes.nodes), formatArray(cloneArray));
-    }
-  });
-
-  activeVariation.value = getActiveVariation[0];
-  selectProductInput.value.variationId = activeVariation.value?.databaseId ?? null;
-  selectProductInput.value.variation = activeVariation.value ? attrValues.value : null;
-  variation.value = variations;
-};
-
 const stockStatus = computed(() => type.value?.stockStatus || StockStatusEnum.OUT_OF_STOCK);
 const disabledAddToCart = computed(() => !type.value || stockStatus.value === StockStatusEnum.ON_BACKORDER || isUpdatingCart.value);
 
-const selectedOptions = ref([]) as Ref<ProductAddonOption>;
 const regularProductPrice = computed(() => parseInt(type.value.rawRegularPrice));
 
 function calculateAddonTotalPrice() {
   let totalPrice = 0;
-
   for (const selectedOption of selectedOptions.value) {
     totalPrice += selectedOption.price;
   }
-
   return totalPrice;
 }
 
 function calculateTotalPrice() {
   const addonTotalPrice = calculateAddonTotalPrice();
   const regularPrice = regularProductPrice.value || 0;
-
   return addonTotalPrice + regularPrice;
 }
 
-function convertData(inputData:any) {
-  // valueText is the value used for multipleChoice type, It's a constructed type.
+function convertData(inputData: any) {
   return inputData.reduce((accumulator, { fieldName, label, valueText }) => {
-    const entry =  accumulator.get(fieldName) || { fieldName, value: valueText ? '' : [] };
-    if(valueText) {
+    const entry = accumulator.get(fieldName) || { fieldName, value: valueText ? '' : [] };
+    if (valueText) {
       entry.value = valueText;
     } else {
       entry.value.push(valueText ? valueText : label);
@@ -106,21 +61,60 @@ function getMultipleChoiceTypeOptions(addon: any) {
   return addon.options.map((o: any, index) => {
     return {
       ...o,
-      valueText: `${o.label}-${index+1}`,
+      valueText: `${o.label}-${index + 1}`,
       fieldName: addon.fieldName,
       fieldType: addon.type
-    }
+    };
   });
 }
 
-
-function mergeArrayValuesForCheckboxType(selectedAddons:any, allAddons:any) {
-    return allAddons.map((addon: any) => ({
-        fieldName: addon.fieldName,
-        value: (selectedAddons.find((selectedAddon: any) => selectedAddon.fieldName === addon.fieldName) || { value: '' }).value,
-    }));
+function mergeArrayValuesForCheckboxType(selectedAddons: any, allAddons: any) {
+  return allAddons.map((addon: any) => ({
+    fieldName: addon.fieldName,
+    value: (selectedAddons.find((selectedAddon: any) => selectedAddon.fieldName === addon.fieldName) || { value: '' }).value,
+  }));
 }
 
+function updateSelectedVariations(variations: Attribute[]): void {
+  if (!product.value?.variations) return;
+
+  attrValues.value = variations.map((el) => ({ attributeName: el.name, attributeValue: el.value }));
+  const cloneArray = JSON.parse(JSON.stringify(variations));
+  const getActiveVariation = product.value.variations?.nodes.filter((variation: any) => {
+    if (variation.attributes) {
+      indexOfTypeAny.value.forEach((index) => (cloneArray[index].value = ''));
+      return arraysEqual(formatArray(variation.attributes.nodes), formatArray(cloneArray));
+    }
+  });
+
+  activeVariation.value = getActiveVariation[0];
+  selectProductInput.value.variationId = activeVariation.value?.databaseId ?? null;
+  selectProductInput.value.variation = activeVariation.value ? attrValues.value : null;
+  variation.value = variations;
+}
+
+onMounted(async () => {
+  // Fetch the complete product data using a GraphQL query
+  const { data } = await useAsyncGql('getProduct', { slug });
+  product.value = data?.value?.product;
+
+  // Fetch live stock status and merge it into the product data
+  try {
+    const { product: stockProduct } = await GqlGetStockStatus({ slug });
+    if (stockProduct) {
+      product.value.stockStatus = stockProduct.stockStatus ?? product.value.stockStatus;
+      stockProduct.variations?.nodes?.forEach((variation, index) => {
+        if (product.value?.variations?.nodes[index]) {
+          product.value.variations.nodes[index].stockStatus = variation.stockStatus;
+        }
+      });
+    }
+  } catch (error: any) {
+    console.error(error?.gqlErrors?.[0]?.message);
+  }
+
+  if (product.value?.variations) indexOfTypeAny.value.push(...checkForVariationTypeOfAny(product.value));
+});
 </script>
 
 <template>
