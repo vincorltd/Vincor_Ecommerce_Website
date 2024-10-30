@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { PropType, computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAppConfig } from '#app'
+
 const route = useRoute();
 const { storeSettings } = useAppConfig();
 const props = defineProps({
   node: { type: Object as PropType<Product>, required: true },
   index: { type: Number, default: 1 },
 });
-
-const imgWidth = 350;
-const imgHeight = Math.round(imgWidth * 1.125);
 
 // example: ?filter=pa_color[green,blue],pa_size[large]
 const filterQuery = ref(route.query?.filter as string);
@@ -37,42 +38,27 @@ const imagetoDisplay = computed<string>(() => {
 </script>
 
 <template>
-  <div class="relative product-card">
+  <div class="bg-white rounded-lg shadow-md overflow-hidden product-card">
     <NuxtLink :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
       <SaleBadge :node="node" class="absolute top-2 right-2" />
       <NuxtImg
         v-if="imagetoDisplay"
-        provider="netlify"
-        :width="imgWidth"
-        :height="imgHeight"
         :src="imagetoDisplay"
         :alt="node.image?.altText || node.name || 'Product image'"
         :title="node.image?.title || node.name"
         :loading="index <= 3 ? 'eager' : 'lazy'"
         placeholder
         placeholder-class="blur-xl"
-        class="skeleton product-image"
+        class="w-full h-48 object-cover product-image"
       />
     </NuxtLink>
-    <div class="p-2">
+    <div class="p-4">
       <NuxtLink :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
-        <h2 class="mb-2 font-light leading-tight">{{ node.name }}</h2>
+        <h2 class="text-base font-semibold mb-2">{{ node.name }}</h2>
       </NuxtLink>
-      <ProductPrice class="text-sm text-primary-light" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
+      <div class="flex justify-between items-center">
+        <ProductPrice class="text-lg font-bold" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
+      </div>
     </div>
   </div>
 </template>
-
-<style lang="postcss">
-.product-card .product-image {
-  @apply rounded-lg w-full overflow-hidden;
-  aspect-ratio: 1/1;
-  object-fit: contain;
-  object-position: center;
-}
-.product-card:hover {
-  h2 {
-    @apply text-primary;
-  }
-}
-</style>

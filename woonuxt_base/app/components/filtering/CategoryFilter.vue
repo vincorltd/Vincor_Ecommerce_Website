@@ -183,27 +183,56 @@ const sortedCategories = computed(() => {
 
 <template>
   <div v-if="categories.length">
-    <div class="cursor-pointer flex font-semibold mt-8 justify-between items-center" @click="isOpen = !isOpen">
+    <div
+      class="cursor-pointer flex items-center justify-between font-semibold mt-8 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+      @click="isOpen = !isOpen"
+    >
       <span>{{ label || $t('messages.shop.category', 2) }}</span>
-      <Icon name="ion:chevron-down-outline" class="transform transition-transform duration-300" :class="isOpen ? 'rotate-180' : ''" />
+      <Icon
+        name="ion:chevron-down-outline"
+        class="transform transition-transform duration-300 text-gray-500"
+        :class="isOpen ? 'rotate-180' : ''"
+      />
     </div>
     <transition name="fade">
       <div v-show="isOpen" class="mt-3 category-container">
-        <div v-for="category in sortedCategories" :key="category.id" class="category-block">
-          <div @click="() => { parentCategorySelected(category); toggleVisibility(category); }" class="parent-category">
+        <div
+          v-for="category in sortedCategories"
+          :key="category.id"
+          class="category-block mb-2"
+        >
+          <div
+            @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
+            class="parent-category cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
+          >
             {{ category.name }}
-            <Icon name="ion:chevron-forward-outline" class="transform transition-transform duration-300" :class="category.showChildren ? 'rotate-90' : ''" />
+            <Icon
+              name="ion:chevron-forward-outline"
+              class="transform transition-transform duration-300 text-gray-400"
+              :class="category.showChildren ? 'rotate-90' : ''"
+            />
           </div>
           <transition name="fade">
-            <div v-show="category.showChildren" class="child-categories py-2">
-              <div v-for="child in category.children" :key="child.id">
-                <input :id="child.slug" class="mr-2" 
-                  :checked="selectedTerms.includes(child.slug)" 
-                  type="checkbox" 
-                  :value="child.slug" 
-                  @change="() => { checkboxChanged(child.slug, category.slug); }">
-                <label :for="child.slug">{{ child.name }}
-                  <span v-if="showCount">({{ child.count || 0 }})</span>
+            <div
+              v-show="category.showChildren"
+              class="child-categories py-2 pl-4 border-l border-gray-200"
+            >
+              <div
+                v-for="child in category.children"
+                :key="child.id"
+                class="flex items-center text-sm text-gray-700 hover:text-gray-900 mb-1"
+              >
+                <input
+                  :id="child.slug"
+                  class="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition ease-in-out"
+                  :checked="selectedTerms.includes(child.slug)"
+                  type="checkbox"
+                  :value="child.slug"
+                  @change="() => { checkboxChanged(child.slug, category.slug); }"
+                />
+                <label :for="child.slug" class="cursor-pointer">
+                  {{ child.name }}
+                  <span v-if="showCount" class="text-gray-500">({{ child.count || 0 }})</span>
                 </label>
               </div>
             </div>
