@@ -66,9 +66,10 @@ const resumeSwiper = () => {
 const images = ref([
   '/images/banner/banner1.jpg',
   '/images/banner/banner2.jpg',
-  '/images/banner/banner4.png',
   '/images/banner/banner5.jpg',
-  '/images/banner/banner6.jpg'
+  '/images/banner/banner6.jpg',
+  '/images/banner/banner8.jpg',
+  '/images/banner/banner9.jpg'
 ]);
 
 const tagline = ref('Innovating Global Connectivity with Advanced SATCOM Solutions');
