@@ -37,7 +37,7 @@ export default defineNuxtConfig({
   },
 
   image: {
-    provider: "netlify",
+    // provider: "netlify",
 
     domains: ["satchart.com"],
   },

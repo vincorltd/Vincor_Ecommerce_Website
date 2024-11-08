@@ -14,7 +14,9 @@
     "@heroicons/vue": "^2.1.5",
     "@stripe/stripe-js": "^4.3.0",
     "@vueform/slider": "^2.1.10",
-    "@vueuse/core": "^11.0.3"
+    "@vueuse/core": "^11.0.3",
+    "swiper": "^11.1.14",
+    "vue-carousel": "^0.18.0"
   },
   "devDependencies": {
     "@nuxt/icon": "^1.5.0",

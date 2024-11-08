@@ -110,7 +110,10 @@ const stockStatus = computed(() => type.value?.stockStatus || StockStatusEnum.OU
 const disabledAddToCart = computed(() => !type.value || stockStatus.value === StockStatusEnum.ON_BACKORDER || isUpdatingCart.value);
 
 const selectedOptions = ref([]) as Ref<ProductAddonOption>;
-const regularProductPrice = computed(() => parseInt(type.value?.rawRegularPrice || '0'));
+const regularProductPrice = computed(() => {
+  const price = parseFloat(type.value?.rawRegularPrice || '0');
+  return Math.round(price * 100) / 100;
+});
 
 function calculateAddonTotalPrice() {
   let totalPrice = 0;
@@ -123,7 +126,8 @@ function calculateAddonTotalPrice() {
 function calculateTotalPrice() {
   const addonTotalPrice = calculateAddonTotalPrice();
   const regularPrice = regularProductPrice.value || 0;
-  return addonTotalPrice + regularPrice;
+  const totalPrice = addonTotalPrice + regularPrice;
+  return Math.round(totalPrice * 100) / 100;
 }
 
 function convertData(inputData: any) {
