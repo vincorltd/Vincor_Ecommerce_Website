@@ -9,6 +9,7 @@ const props = defineProps({
 const route = useRoute();
 const isOpen = ref(props.open);
 const categories = ref([]);
+const emit = defineEmits(['collapse-others']);
 
 const filterProductsByCategory = (categoryId) => {
   console.log(`Filtering products by category: ${categoryId}`);
@@ -175,14 +176,33 @@ const parentCategorySelected = (category) => {
   console.log('Parent category selected:', category.name);
 };
 
-
 const sortedCategories = computed(() => {
   return [...categories.value].sort((a, b) => a.name.localeCompare(b.name));
 });
+
+const isExpanded = ref(false);
+const containerHeight = computed(() => {
+  return isExpanded.value ? 'none' : '300px';
+});
+
+const toggleExpand = () => {
+  isExpanded.value = !isExpanded.value;
+  if (isExpanded.value) {
+    emit('collapse-others');
+  }
+};
+
+// Add method to collapse this filter
+const collapse = () => {
+  isExpanded.value = false;
+};
+
+// Expose collapse method to parent
+defineExpose({ collapse });
 </script>
 
 <template>
-  <div v-if="categories.length">
+  <div v-if="categories.length" class="filter-content">
     <div
       class="cursor-pointer flex items-center justify-between font-semibold mt-8 text-gray-700 hover:text-gray-900 transition-colors duration-200"
       @click="isOpen = !isOpen"
@@ -195,78 +215,101 @@ const sortedCategories = computed(() => {
       />
     </div>
     <transition name="fade">
-      <div v-show="isOpen" class="mt-3 category-container">
-        <div
-          v-for="category in sortedCategories"
-          :key="category.id"
-          class="category-block mb-2"
+      <div v-show="isOpen">
+        <div 
+          class="mt-3 category-container"
+          :style="{
+            maxHeight: containerHeight,
+            overflow: isExpanded.value ? 'visible' : 'auto'
+          }"
         >
           <div
-            @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
-            class="parent-category cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
+            v-for="category in sortedCategories"
+            :key="category.id"
+            class="category-block mb-2"
           >
-            {{ category.name }}
-            <Icon
-              name="ion:chevron-forward-outline"
-              class="transform transition-transform duration-300 text-gray-400"
-              :class="category.showChildren ? 'rotate-90' : ''"
-            />
-          </div>
-          <transition name="fade">
             <div
-              v-show="category.showChildren"
-              class="child-categories py-2 pl-4 border-l border-gray-200"
+              @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
+              class="parent-category cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
             >
-              <div
-                v-for="child in category.children"
-                :key="child.id"
-                class="flex items-center text-sm text-gray-700 hover:text-gray-900 mb-1"
-              >
-                <input
-                  :id="child.slug"
-                  class="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition ease-in-out"
-                  :checked="selectedTerms.includes(child.slug)"
-                  type="checkbox"
-                  :value="child.slug"
-                  @change="() => { checkboxChanged(child.slug, category.slug); }"
-                />
-                <label :for="child.slug" class="cursor-pointer">
-                  {{ child.name }}
-                  <span v-if="showCount" class="text-gray-500">({{ child.count || 0 }})</span>
-                </label>
-              </div>
+              {{ category.name }}
+              <Icon
+                name="ion:chevron-forward-outline"
+                class="transform transition-transform duration-300 text-gray-400"
+                :class="category.showChildren ? 'rotate-90' : ''"
+              />
             </div>
-          </transition>
+            <transition name="fade">
+              <div
+                v-show="category.showChildren"
+                class="child-categories py-2 pl-4 border-l border-gray-200"
+              >
+                <div
+                  v-for="child in category.children"
+                  :key="child.id"
+                  class="flex items-center text-sm text-gray-700 hover:text-gray-900 mb-1"
+                >
+                  <input
+                    :id="child.slug"
+                    class="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition ease-in-out"
+                    :checked="selectedTerms.includes(child.slug)"
+                    type="checkbox"
+                    :value="child.slug"
+                    @change="() => { checkboxChanged(child.slug, category.slug); }"
+                  />
+                  <label :for="child.slug" class="cursor-pointer">
+                    {{ child.name }}
+                    <span v-if="showCount" class="text-gray-500">({{ child.count || 0 }})</span>
+                  </label>
+                </div>
+              </div>
+            </transition>
+          </div>
         </div>
+        
+        <button
+          v-if="categories.length > 5"
+          @click="toggleExpand"
+          class="w-full mt-2 py-2 px-4 text-sm text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+        >
+          <span>{{ isExpanded ? 'Show Less' : 'Show More' }}</span>
+          <Icon
+            :name="isExpanded ? 'ion:chevron-up-outline' : 'ion:chevron-down-outline'"
+            class="w-4 h-4"
+          />
+        </button>
       </div>
     </transition>
   </div>
 </template>
 
 <style scoped>
-.category-container {
-  max-height: 750px; /* Increased the maximum height */
-  overflow-y: auto; /* Enable vertical scrolling */
-  padding-right: 10px; /* Add some padding to prevent the scrollbar from overlapping the content */
+.filter-content {
+  display: flex;
+  flex-direction: column;
 }
 
-/* Custom Scrollbar Styles */
+.category-container {
+  padding-right: 10px;
+  transition: all 0.3s ease-in-out;
+}
+
 .category-container::-webkit-scrollbar {
-  width: 6px; /* Width of the scrollbar */
+  width: 6px;
 }
 
 .category-container::-webkit-scrollbar-track {
-  background: #f1f1f1; /* Background of the scrollbar track */
-  border-radius: 10px; /* Rounded corners for the track */
+  background: #f1f1f1;
+  border-radius: 10px;
 }
 
 .category-container::-webkit-scrollbar-thumb {
-  background: #888; /* Color of the scrollbar thumb */
-  border-radius: 10px; /* Rounded corners for the thumb */
+  background: #888;
+  border-radius: 10px;
 }
 
 .category-container::-webkit-scrollbar-thumb:hover {
-  background: #555; /* Color of the scrollbar thumb on hover */
+  background: #555;
 }
 
 .category-block {
