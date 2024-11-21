@@ -13,7 +13,7 @@ const { hideCategories } = defineProps({ hideCategories: { type: Boolean, defaul
     <OrderByDropdown class="block w-full md:hidden" />
     <div class="relative z-30 grid mb-12 space-y-8 divide-y">
       <CategoryFilter v-if="!hideCategories" />
-      <!-- <BrandFilter /> -->
+      <BrandFilter />
             <LazyResetFiltersButton v-if="isFiltersActive" />
             
     </div>

@@ -131,7 +131,20 @@ export function useFiltering() {
       const onSale = getFilter('sale');
       const saleItemsOnlyCondition = onSale.length ? product.onSale : true;
 
-      return ratingCondition && priceCondition && attributeCondition && categoryCondition && saleItemsOnlyCondition;
+      // Brand filter
+      const brand = getFilter('brand') || [];
+      const brandCondition = brand.length
+        ? product.productTags?.nodes?.some(tag => 
+            brand.includes(tag.name.toLowerCase())
+          )
+        : true;
+
+      return ratingCondition && 
+             priceCondition && 
+             attributeCondition && 
+             categoryCondition && 
+             saleItemsOnlyCondition &&
+             brandCondition;
     });
   }
 
