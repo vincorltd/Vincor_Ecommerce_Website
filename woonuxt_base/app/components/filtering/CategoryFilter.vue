@@ -223,47 +223,52 @@ defineExpose({ collapse });
             overflow: isExpanded.value ? 'visible' : 'auto'
           }"
         >
-          <div
-            v-for="category in sortedCategories"
-            :key="category.id"
-            class="category-block mb-2"
+          <div 
+            class="category-items-wrapper"
+            :class="{ 'items-expanded': isExpanded }"
           >
             <div
-              @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
-              class="parent-category cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
+              v-for="category in sortedCategories"
+              :key="category.id"
+              class="category-block mb-2"
             >
-              {{ category.name }}
-              <Icon
-                name="ion:chevron-forward-outline"
-                class="transform transition-transform duration-300 text-gray-400"
-                :class="category.showChildren ? 'rotate-90' : ''"
-              />
-            </div>
-            <transition name="fade">
               <div
-                v-show="category.showChildren"
-                class="child-categories py-2 pl-4 border-l border-gray-200"
+                @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
+                class="parent-category cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
               >
-                <div
-                  v-for="child in category.children"
-                  :key="child.id"
-                  class="flex items-center text-sm text-gray-700 hover:text-gray-900 mb-1"
-                >
-                  <input
-                    :id="child.slug"
-                    class="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition ease-in-out"
-                    :checked="selectedTerms.includes(child.slug)"
-                    type="checkbox"
-                    :value="child.slug"
-                    @change="() => { checkboxChanged(child.slug, category.slug); }"
-                  />
-                  <label :for="child.slug" class="cursor-pointer">
-                    {{ child.name }}
-                    <span v-if="showCount" class="text-gray-500">({{ child.count || 0 }})</span>
-                  </label>
-                </div>
+                {{ category.name }}
+                <Icon
+                  name="ion:chevron-forward-outline"
+                  class="transform transition-transform duration-300 text-gray-400"
+                  :class="category.showChildren ? 'rotate-90' : ''"
+                />
               </div>
-            </transition>
+              <transition name="fade">
+                <div
+                  v-show="category.showChildren"
+                  class="child-categories py-2 pl-4 border-l border-gray-200"
+                >
+                  <div
+                    v-for="child in category.children"
+                    :key="child.id"
+                    class="flex items-center text-sm text-gray-700 hover:text-gray-900 mb-1"
+                  >
+                    <input
+                      :id="child.slug"
+                      class="mr-2 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 transition ease-in-out"
+                      :checked="selectedTerms.includes(child.slug)"
+                      type="checkbox"
+                      :value="child.slug"
+                      @change="() => { checkboxChanged(child.slug, category.slug); }"
+                    />
+                    <label :for="child.slug" class="cursor-pointer">
+                      {{ child.name }}
+                      <span v-if="showCount" class="text-gray-500">({{ child.count || 0 }})</span>
+                    </label>
+                  </div>
+                </div>
+              </transition>
+            </div>
           </div>
         </div>
         
@@ -343,4 +348,33 @@ defineExpose({ collapse });
 .fade-enter, .fade-leave-to {
   opacity: 0;
 }
+
+.category-items-wrapper {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease-in-out;
+}
+
+.category-items-wrapper > div {
+  transition: all 0.3s ease-in-out;
+  transform-origin: top;
+}
+
+.category-items-wrapper:not(.items-expanded) > div:nth-child(n+8) {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.items-expanded > div {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Add transition delay for each item */
+.items-expanded > div:nth-child(1) { transition-delay: 0.05s; }
+.items-expanded > div:nth-child(2) { transition-delay: 0.1s; }
+.items-expanded > div:nth-child(3) { transition-delay: 0.15s; }
+.items-expanded > div:nth-child(4) { transition-delay: 0.2s; }
+.items-expanded > div:nth-child(5) { transition-delay: 0.25s; }
+/* ... and so on for as many items as needed */
 </style>

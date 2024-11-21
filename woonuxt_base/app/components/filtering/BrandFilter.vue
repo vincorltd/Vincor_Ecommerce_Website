@@ -118,20 +118,25 @@ defineExpose({ collapse });
             overflow: isExpanded.value ? 'visible' : 'auto'
           }"
         >
-          <div
-            v-for="brand in brands"
-            :key="brand.slug"
-            class="brand-block mb-2"
+          <div 
+            class="brand-items-wrapper"
+            :class="{ 'items-expanded': isExpanded }"
           >
             <div
-              @click="selectBrand(brand.slug)"
-              class="brand-item cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
-              :class="{
-                'bg-primary/5 text-primary': selectedBrand === brand.slug,
-                'bg-gray-50': selectedBrand !== brand.slug
-              }"
+              v-for="brand in brands"
+              :key="brand.slug"
+              class="brand-block mb-2"
             >
-              {{ brand.displayName }}
+              <div
+                @click="selectBrand(brand.slug)"
+                class="brand-item cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
+                :class="{
+                  'bg-primary/5 text-primary': selectedBrand === brand.slug,
+                  'bg-gray-50': selectedBrand !== brand.slug
+                }"
+              >
+                {{ brand.displayName }}
+              </div>
             </div>
           </div>
         </div>
@@ -203,4 +208,38 @@ defineExpose({ collapse });
 .brand-container {
   transition: max-height 0.3s ease-in-out;
 }
+
+.brand-items-wrapper {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease-in-out;
+}
+
+.brand-items-wrapper > div {
+  transition: all 0.3s ease-in-out;
+  transform-origin: top;
+}
+
+.brand-items-wrapper:not(.items-expanded) > div:nth-child(n+8) {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.items-expanded > div {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Add transition delay for each item */
+.items-expanded > div:nth-child(1) { transition-delay: 0.05s; }
+.items-expanded > div:nth-child(2) { transition-delay: 0.1s; }
+.items-expanded > div:nth-child(3) { transition-delay: 0.15s; }
+.items-expanded > div:nth-child(4) { transition-delay: 0.2s; }
+.items-expanded > div:nth-child(5) { transition-delay: 0.25s; }
+.items-expanded > div:nth-child(6) { transition-delay: 0.3s; }
+.items-expanded > div:nth-child(7) { transition-delay: 0.35s; }
+.items-expanded > div:nth-child(8) { transition-delay: 0.4s; }
+.items-expanded > div:nth-child(9) { transition-delay: 0.45s; }
+.items-expanded > div:nth-child(10) { transition-delay: 0.5s; }
+/* Add more if needed */
 </style>
