@@ -52,8 +52,14 @@ export function useSearching() {
           const name = product.name?.toLowerCase();
           const description = product.description ? product.description.toLowerCase() : null;
           const shortDescription = product.shortDescription ? product.shortDescription.toLowerCase() : null;
+          const sku = product.sku?.toLowerCase();
           const query = search.toLowerCase();
-          return name?.includes(query) ?? description?.includes(query) ?? shortDescription?.includes(query);
+          return (
+            name?.includes(query) || 
+            description?.includes(query) || 
+            shortDescription?.includes(query) || 
+            sku?.includes(query)
+          );
         })
       : products;
   }

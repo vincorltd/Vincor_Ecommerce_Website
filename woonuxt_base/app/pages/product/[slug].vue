@@ -175,14 +175,89 @@ function updateSelectedVariations(attrs: Attribute[]) {
   activeVariation.value = matchingVariation || null;
 }
 
-// Enhanced prefetching for related products
+// Add SEO composables
+const { public: { siteUrl } } = useRuntimeConfig();
+
+// SEO setup with proper typing
+const seo = computed(() => {
+  if (!product.value) return null;
+
+  const productName = product.value.name;
+  const description = product.value.shortDescription || product.value.description || `Buy ${productName} from our store`;
+  const price = type.value?.regularPrice || '';
+  const images = [
+    product.value.image?.sourceUrl,
+    ...(product.value.galleryImages?.nodes?.map(img => img.sourceUrl) || [])
+  ].filter(Boolean);
+
+  return {
+    title: productName,
+    description: description.replace(/(<([^>]+)>)/gi, ''), // Strip HTML tags
+    ogTitle: `${productName} - ${price}`,
+    ogDescription: description.replace(/(<([^>]+)>)/gi, ''),
+    ogImage: images[0],
+    twitterCard: 'summary_large_image',
+    twitterImage: images[0],
+    canonical: `${siteUrl}/product/${product.value.slug}`,
+    // Add structured data for product
+    schemaOrg: {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: productName,
+      description: description.replace(/(<([^>]+)>)/gi, ''),
+      image: images,
+      sku: product.value.sku,
+      offers: {
+        '@type': 'Offer',
+        price: type.value?.rawPrice || '',
+        priceCurrency: 'USD', // Adjust based on your store currency
+        availability: `https://schema.org/${type.value?.stockStatus === 'IN_STOCK' ? 'InStock' : 'OutOfStock'}`,
+        url: `${siteUrl}/product/${product.value.slug}`
+      },
+      ...(product.value.reviews?.nodes?.length && {
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: product.value.averageRating,
+          reviewCount: product.value.reviewCount
+        }
+      })
+    }
+  };
+});
+
+// Replace existing useHead implementation with enhanced SEO
 useHead(() => ({
+  title: seo.value?.title,
   link: [
+    { rel: 'canonical', href: seo.value?.canonical },
+    // Keep existing prefetch links
     ...product.value?.related?.nodes?.map(related => ({
       rel: 'prefetch',
       href: `/product/${related.slug}`,
       as: 'document'
     })) || []
+  ]
+}));
+
+// Add comprehensive SEO meta tags
+useSeoMeta(() => ({
+  title: seo.value?.title,
+  ogTitle: seo.value?.ogTitle,
+  description: seo.value?.description,
+  ogDescription: seo.value?.ogDescription,
+  ogImage: seo.value?.ogImage,
+  twitterCard: seo.value?.twitterCard,
+  twitterImage: seo.value?.twitterImage,
+  robots: 'index, follow',
+}));
+
+// Add JSON-LD structured data
+useHead(() => ({
+  script: [
+    {
+      type: 'application/ld+json',
+      children: JSON.stringify(seo.value?.schemaOrg)
+    }
   ]
 }));
 </script>
@@ -193,7 +268,6 @@ useHead(() => ({
     class="container relative py-6 xl:max-w-7xl"
   >
     <div :key="product.databaseId">
-      <SEOHead :info="product" />
       <Breadcrumb 
         :product 
         class="mb-6" 
