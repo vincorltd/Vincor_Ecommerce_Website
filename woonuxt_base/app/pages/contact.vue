@@ -23,3 +23,46 @@
 <p>Vincor™ recognizes several major holidays and a host of optional, flexible holidays for our staff. We close our general office (without disruption to field service projects), in observance of: New Years Day, Memorial Day, Independence Day, Labor Day, Thanksgiving Day with the day after Thanksgiving, Christmas Eve and Christmas Day.</p>
 </div>
 </template>
+
+<script setup lang="ts">
+useSeoMeta({
+  title: 'Contact | Earth Station Antenna Specialists',
+  description: 'Contact Vincor Ltd., your SATCOM solutions specialists. Call us at +1 (888) 284-6267 or +1 (708) 534-0008. Located in Monee, IL, we provide expert satellite communication solutions and antenna services.',
+  ogTitle: 'Contact Vincor Ltd. | Earth Station Antenna Specialists',
+  ogDescription: 'Get in touch with Vincor Ltd. - "We Work Harder For You"™. Expert SATCOM solutions, antenna specialists, and satellite communication product distribution.',
+  ogImage: '/images/vincor-social-share.jpg',
+})
+
+useHead({
+  link: [
+    { rel: 'canonical', href: 'https://vincor.com/contact' }
+  ],
+  // Add structured data for business
+  script: [
+    {
+      type: 'application/ld+json',
+      children: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Vincor Ltd.',
+        description: 'Earth Station Antenna Specialists and Satellite Communication Product Distribution',
+        url: 'https://www.vincor.com',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: '5652 W. Monee-Manhattan Road',
+          addressLocality: 'Monee',
+          addressRegion: 'IL',
+          postalCode: '60449',
+          addressCountry: 'US'
+        },
+        contactPoint: {
+          '@type': 'ContactPoint',
+          telephone: ['+1-888-284-6267', '+1-708-534-0008'],
+          contactType: 'customer service'
+        },
+        slogan: '"We Work Harder For You"™'
+      })
+    }
+  ]
+})
+</script>

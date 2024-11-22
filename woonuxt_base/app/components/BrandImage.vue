@@ -9,27 +9,8 @@ const brandTag = computed(() => {
   return tag.toLowerCase();
 })
 
-const extensions = ['png', 'jpg', 'jpeg', 'svg', 'gif']
-const brandImageUrl = ref('')
+const brandImageUrl = computed(() => brandTag.value ? `/images/brands/${brandTag.value}.png` : '')
 
-const checkImageExistence = async () => {
-  for (const ext of extensions) {
-    const url = `/images/brands/${brandTag.value}.${ext}`
-    try {
-      const response = await fetch(url, { method: 'HEAD' })
-      if (response.ok) {
-        brandImageUrl.value = url
-        return
-      }
-    } catch (error) {
-      console.error(`Error checking image: ${url}`, error)
-    }
-  }
-  brandImageUrl.value = '' // No image found
-}
-
-// Call the function when the component is mounted
-onMounted(checkImageExistence)
 </script>
 
 <template>

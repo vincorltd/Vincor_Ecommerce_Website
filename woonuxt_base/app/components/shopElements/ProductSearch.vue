@@ -1,4 +1,6 @@
 <script setup>
+import { useDebounceFn } from '@vueuse/core';
+
 const { getSearchQuery, setSearchQuery, clearSearchQuery } = useSearching();
 const searchQuery = ref(getSearchQuery());
 
@@ -6,6 +8,20 @@ const reset = () => {
   clearSearchQuery();
   searchQuery.value = '';
 };
+
+// Add debounced search to improve performance
+const debouncedSearch = useDebounceFn((value) => {
+  setSearchQuery(value);
+}, 300);
+
+// Watch for input changes
+watch(searchQuery, (value) => {
+  if (value) {
+    debouncedSearch(value);
+  } else {
+    reset();
+  }
+});
 
 watch(getSearchQuery, (value) => {
   if (!value) reset();

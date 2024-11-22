@@ -8,8 +8,11 @@ const productCategories = data.value?.productCategories?.nodes || [];
 const { data: productData } = await useAsyncGql('getProducts', { first: 5, orderby: ProductsOrderByEnum.POPULARITY });
 const popularProducts = productData.value.products?.nodes || [];
 
+const { data: featuredProductData } = await useAsyncGql('getFeaturedProducts', { first: 5 });
+const featuredProducts = featuredProductData.value?.products?.nodes || [];
+
 useSeoMeta({
-  title: `Home`,
+  title: `Home | Earth Station Antenna Specialists`,
   ogTitle: siteName,
   description: description,
   ogDescription: shortDescription,
@@ -37,15 +40,12 @@ useSeoMeta({
               { src: '/images/brands/belden.png', alt: 'Belden' },
               { src: '/images/brands/blondertongue.png', alt: 'Blonder Tongue' },
               { src: '/images/brands/commscope.png', alt: 'CommScope' },
-              { src: '/images/brands/comtech.png', alt: 'Comtech' },
               { src: '/images/brands/dh.png', alt: 'DH' },
-              { src: '/images/brands/digisat.png', alt: 'DigiSat' },
               { src: '/images/brands/eti.png', alt: 'ETI' },
               { src: '/images/brands/kratos.png', alt: 'Kratos' },
               { src: '/images/brands/norsat.png', alt: 'Norsat' },
               { src: '/images/brands/polyphaser.png', alt: 'PolyPhaser' },
               { src: '/images/brands/quintech.png', alt: 'Quintech' },
-              { src: '/images/brands/seavey.png', alt: 'Seavey' },
               { src: '/images/brands/thompson.png', alt: 'Thompson' },
               { src: '/images/brands/thor.png', alt: 'Thor' },
               { src: '/images/brands/times.png', alt: 'Times' },
@@ -66,24 +66,30 @@ useSeoMeta({
   </div>
 </div>
 
-    <section class="container my-16 overflow-hidden">
-      <div class="flex items-end justify-between">
-        <h2 class="text-lg font-semibold md:text-2xl">Popular Categories</h2>
-        <NuxtLink class="text-primary" to="/categories">{{ $t('messages.general.viewAll') }}</NuxtLink>
+    <section class="container mx-auto my-16 px-4">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Popular Categories</h2>
+        <NuxtLink class="text-blue-600 hover:underline" to="/categories">{{ $t('messages.general.viewAll') }}</NuxtLink>
       </div>
-      <div class="grid justify-center grid-cols-2 gap-4 mt-8 md:grid-cols-3 lg:grid-cols-6">
-        <CategoryCard v-for="(category, i) in productCategories" :key="i" class="w-full" :node="category" />
+      <div class="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        <CategoryCard v-for="(category, i) in productCategories" :key="i" class="w-full bg-white shadow-md rounded-lg overflow-hidden" :node="category" />
       </div>
     </section>
 
- 
-
-    <section class="container my-16" v-if="popularProducts">
-      <div class="flex items-end justify-between">
-        <h2 class="text-lg font-semibold md:text-2xl">Popular Products</h2>
-        <NuxtLink class="text-primary" to="/products">{{ $t('messages.general.viewAll') }}</NuxtLink>
+    <section class="container mx-auto my-16 px-4" v-if="popularProducts">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Popular Products</h2>
+        <NuxtLink class="text-blue-600 hover:underline" to="/products">{{ $t('messages.general.viewAll') }}</NuxtLink>
       </div>
-      <ProductRow :products="popularProducts" class="grid-cols-2 md:grid-cols-4 lg:grid-cols-5 mt-8" />
+      <ProductRow :products="popularProducts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" />
+    </section>
+
+    <section class="container mx-auto my-16 px-4" v-if="featuredProducts?.length">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Featured Products</h2>
+        <NuxtLink class="text-blue-600 hover:underline" to="/products">{{ $t('messages.general.viewAll') }}</NuxtLink>
+      </div>
+      <ProductRow :products="featuredProducts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6" />
     </section>
   </main>
 </template>

@@ -2,7 +2,9 @@ type Cart = import('#gql').GetCartQuery['cart'];
 type Customer = import('#gql').GetCartQuery['customer'];
 type Viewer = import('#gql').GetCartQuery['viewer'];
 type PaymentGateways = import('#gql').GetCartQuery['paymentGateways'];
-type ProductBase = import('#gql').GetProductQuery['product'];
+type ProductBase = import('#gql').GetProductQuery['product'] & {
+  sku?: string | null;
+};
 type Order = import('#gql').OrderFragmentFragment;
 type SimpleProduct = import('#gql').SimpleProductFragment;
 type VariableProduct = import('#gql').VariableProductFragment;

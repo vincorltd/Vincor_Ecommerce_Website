@@ -16,3 +16,49 @@
 </div>
     </div>
 </template>
+
+<script setup lang="ts">
+useSeoMeta({
+  title: 'About Us | Earth Station Antenna Specialists',
+  description: 'Since 1986, Vincor Ltd. has been a worldwide leader in earth station antenna sales, installation, and SATCOM solutions. Operating in all U.S. states and over 50 countries worldwide.',
+  ogTitle: 'About Vincor Ltd. | Earth Station Antenna Specialists',
+  ogDescription: 'Learn about Vincor Ltd. - "We Work Harder For You"™. Global leaders in earth station antenna services and SATCOM solutions since 1986.',
+  ogImage: '/images/vincor-social-share.jpg',
+})
+
+useHead({
+  link: [
+    { rel: 'canonical', href: 'https://vincor.com/about-us' }
+  ],
+  script: [
+    {
+      type: 'application/ld+json',
+      children: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'AboutPage',
+        mainEntity: {
+          '@type': 'Organization',
+          name: 'Vincor Ltd.',
+          description: 'Earth Station Antenna Specialists and Satellite Communication Product Distribution',
+          foundingDate: '1986',
+          url: 'https://www.vincor.com',
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: '5652 W. Monee-Manhattan Road',
+            addressLocality: 'Monee',
+            addressRegion: 'IL',
+            postalCode: '60449',
+            addressCountry: 'US'
+          },
+          contactPoint: {
+            '@type': 'ContactPoint',
+            telephone: ['+1-888-284-6267', '+1-708-534-0008'],
+            contactType: 'customer service'
+          },
+          slogan: '"We Work Harder For You"™'
+        }
+      })
+    }
+  ]
+})
+</script>
