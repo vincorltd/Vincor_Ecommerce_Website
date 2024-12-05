@@ -99,14 +99,14 @@
       "rateContent": "How was your experience?",
       "rateEmail": "Your email",
       "submit": "Submit",
-      "order": "Order | Orders",
-      "orderSummary": "Order Summary",
-      "orderReceived": "Order Received",
-      "orderNote": "Order Note | Order Notes",
-      "orderNotePlaceholder": "Notes about your order, e.g. special notes for delivery.",
-      "orderThanks": "Thank you for your order. We will send you an email with the order details.",
-      "orderHistory": "Order History",
-      "placeOrder": "Place Order",
+      "order": "Quote | Quotes",
+      "orderSummary": "Quotation Summary",
+      "orderReceived": "Quote Received",
+      "orderNote": "Quote Note | Quote Notes",
+      "orderNotePlaceholder": "Notes about your quote, e.g. special notes for delivery.",
+      "orderThanks": "Thank you for your quote. We will send you an email with the quote details.",
+      "orderHistory": "Quote History",
+      "placeOrder": "Place Quote",
       "total": "Total",
       "subtotal": "Subtotal",
       "rating": "Rating | Ratings",
@@ -148,7 +148,7 @@
       "passwordMismatch": "Passwords do not match. Please try again.",
       "invalidPasswordResetLink": "Password reset link is invalid.",
       "general": "Something went wrong",
-      "noOrder": "We could not find your order. Please try again later."
+      "noOrder": "We could not find your quote. Please try again later."
     }
   }
 }
