@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-lg mx-auto my-16 min-h-[600px] lg:my-24">
     <div class="flex flex-col items-center">
-      <Logo class="mb-6 scale-125" />
+      <LogoDark class="mb-6 scale-40" />
       <h1 class="text-xl font-semibold lg:text-3xl">{{ formTitle }}</h1>
       <div v-if="formView === 'login'" class="my-2 text-center">
         {{ $t('messages.account.noAccount') }}
@@ -59,6 +59,8 @@
 </template>
 
 <script setup lang="ts">
+import LogoDark from '../generalElements/LogoDark.vue';
+
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();

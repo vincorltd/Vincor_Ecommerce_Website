@@ -25,6 +25,9 @@ const { isShowingSearch } = useSearching();
         <NuxtLink to="/wishlist" title="Wishlist">
           <Icon class="text-blue-300" name="ion:bookmark-outline" size="20" />
         </NuxtLink>
+        <NuxtLink to="/my-account" title="My Account">
+          <Icon class="text-blue-300" name="ion:person-outline" size="20" />
+        </NuxtLink>
         <CartTrigger class="text-blue-300 pb-2" />
         <NuxtLink to="https://cloud.vincor.com/" title="Cloud">
           <Icon class="text-blue-300" name="ion:cloud-outline" size="20" />
