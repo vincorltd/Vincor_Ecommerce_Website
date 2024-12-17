@@ -77,7 +77,6 @@ export default defineNuxtConfig({
       page_title: 'Vincor Ltd', // Optional: customize page title
       debug_mode: process.env.NODE_ENV !== 'production' // Optional: enable debug mode in development
     },
-    // Optional: initialize with consent mode
     initCommands: [
       ['consent', 'default', {
         analytics_storage: 'denied',
@@ -85,5 +84,21 @@ export default defineNuxtConfig({
         wait_for_update: 500
       }]
     ]
+  },
+
+  // Add Matomo script to head
+  app: {
+    head: {
+      script: [
+        {
+          children: `
+            var _paq = window._paq = window._paq || [];
+            _paq.push(['requireConsent']);
+            _paq.push(['trackPageView']);
+            _paq.push(['enableLinkTracking']);`,
+          type: 'text/javascript'
+        }
+      ]
+    }
   }
 });
