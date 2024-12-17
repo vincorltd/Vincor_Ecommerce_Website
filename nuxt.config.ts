@@ -20,10 +20,58 @@ export default defineNuxtConfig({
     },
     routeRules: {
       '/wp-admin/': { redirect: 'https://satchart.com/wp-admin/' },
+      '/api/sitemap-urls': { cors: true }
     },
   },
 
   devtools: {
     enabled: true,
   },
+
+  modules: [
+    '@nuxtjs/sitemap',
+    '@nuxtjs/robots',
+    'nuxt-graphql-client'
+  ],
+
+  'graphql-client': {
+    clients: {
+      default: {
+        host: process.env.GQL_HOST || 'http://satchart.com/graphql',
+        // corsOptions: { mode: 'cors', credentials: 'include' },
+      },
+    },
+  },
+
+  site: {
+    url: 'https://vincor.com',
+    name: 'Vincor Ltd.'
+  },
+
+  // Updated sitemap configuration with proper URL format
+  sitemap: {
+    sitemaps: {
+      main: {
+        sources: ['/api/sitemap-urls']
+      }
+    }
+  },
+
+  // Robots.txt configuration
+  robots: {
+    rules: {
+      UserAgent: '*',
+      Disallow: [
+        '/my-account',
+        '/checkout',
+        '/cart',
+        '/order-summary',
+        '/wp-admin'
+      ],
+      Sitemap: 'https://vincor.com/sitemap.xml'
+    }
+  },
+
+  // Optional: Add debug logging for development
+  debug: process.env.NODE_ENV === 'development',
 });

@@ -25,7 +25,7 @@ export default defineNuxtConfig({
 
   modules: ['woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', 
     
-    '@nuxt/image', '@nuxtjs/i18n'],
+    '@nuxt/image', '@nuxtjs/i18n', '@nuxtjs/sitemap'],
 
   'graphql-client': {
     clients: {
@@ -68,6 +68,7 @@ export default defineNuxtConfig({
       '/products/**': { swr: 3600 },
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
+      '/api/sitemap-urls': { cors: true }
     },
   },
 
