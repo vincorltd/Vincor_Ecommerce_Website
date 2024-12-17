@@ -28,11 +28,7 @@ export default defineNuxtConfig({
     enabled: true,
   },
 
-  modules: [
-    '@nuxtjs/sitemap',
-    '@nuxtjs/robots',
-    'nuxt-graphql-client'
-  ],
+  modules: ['@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
 
   'graphql-client': {
     clients: {
@@ -74,4 +70,20 @@ export default defineNuxtConfig({
 
   // Optional: Add debug logging for development
   debug: process.env.NODE_ENV === 'development',
+
+  gtag: {
+    id: 'G-J531C0D03Y',
+    config: {
+      page_title: 'Vincor Ltd', // Optional: customize page title
+      debug_mode: process.env.NODE_ENV !== 'production' // Optional: enable debug mode in development
+    },
+    // Optional: initialize with consent mode
+    initCommands: [
+      ['consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        wait_for_update: 500
+      }]
+    ]
+  }
 });
