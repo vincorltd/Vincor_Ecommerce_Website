@@ -20,7 +20,16 @@ export default defineNuxtConfig({
     },
     routeRules: {
       '/wp-admin/': { redirect: 'https://satchart.com/wp-admin/' },
-      '/api/sitemap-urls': { cors: true }
+      '/api/sitemap-urls': { cors: true },
+      '/product/:slug': { 
+        redirect: (to) => {
+          const slug = to.split('/').pop()
+          if (!slug) return to
+          const encodedSlug = encodeURIComponent(decodeURIComponent(slug))
+          if (encodedSlug === slug) return to
+          return `/product/${encodedSlug}`
+        }
+      }
     },
   },
 
