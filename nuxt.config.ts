@@ -21,15 +21,6 @@ export default defineNuxtConfig({
     routeRules: {
       '/wp-admin/': { redirect: 'https://satchart.com/wp-admin/' },
       '/api/sitemap-urls': { cors: true },
-      '/product/:slug': { 
-        redirect: (to) => {
-          const slug = to.split('/').pop()
-          if (!slug) return to
-          const encodedSlug = encodeURIComponent(decodeURIComponent(slug))
-          if (encodedSlug === slug) return to
-          return `/product/${encodedSlug}`
-        }
-      }
     },
   },
 
@@ -78,7 +69,7 @@ export default defineNuxtConfig({
   },
 
   // Optional: Add debug logging for development
-  debug: process.env.NODE_ENV === 'development',
+  // debug: process.env.NODE_ENV === 'development',
 
   gtag: {
     id: 'G-J531C0D03Y',
