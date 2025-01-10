@@ -10,10 +10,13 @@ export default <Partial<Config>>{
     extend: {
       colors: {
         primary: {
-          light: '#2947B4',
-          DEFAULT: process.env.PRIMARY_COLOR || '#2947B4',
-          dark: '#192551',
+          light: '#AE7DDD',
+          DEFAULT: process.env.PRIMARY_COLOR || '#7F54B2',
+          dark: '#754fa3',
         },
+      },
+      aspectRatio: {
+        '9/8': '1 / 1.125',
       },
       screens: {
         '2xl': '1400px',

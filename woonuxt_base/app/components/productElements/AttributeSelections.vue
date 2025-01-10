@@ -1,25 +1,25 @@
 <script setup lang="ts">
 interface Props {
   attributes: any[];
-  defaultAttributes?: { nodes: Attribute[] };
+  defaultAttributes?: { nodes: VariationAttribute[] } | null;
 }
 
 const { attributes, defaultAttributes } = defineProps<Props>();
 const emit = defineEmits(['attrs-changed']);
 
-const activeVariations = ref<Attribute[]>([]);
+const activeVariations = ref<VariationAttribute[]>([]);
 
-const getSelectedName = (attr: any, activeVariation: Attribute) => {
-  if (attr?.terms?.nodes) {
-    return attr.terms.nodes.find((node: { slug: string }) => node.slug === activeVariation.value).name;
+const getSelectedName = (attr: any, activeVariation?: VariationAttribute) => {
+  if (attr?.terms?.nodes && activeVariation) {
+    return attr.terms.nodes.find((node: { slug: string }) => node.slug === activeVariation.value)?.name;
   }
 
-  return activeVariation.value || '';
+  return activeVariation?.value || '';
 };
 
 const updateAttrs = () => {
-  const selectedVariations = attributes.map((row): Attribute => {
-    const radioValue = document.querySelector(`.name-${row.name}:checked`) as HTMLInputElement;
+  const selectedVariations = attributes.map((row): VariationAttribute => {
+    const radioValue = document.querySelector(`.name-${row.name.toLowerCase()}:checked`) as HTMLInputElement;
     const dropdownValue = document.querySelector(`#${row.name}`) as HTMLSelectElement;
     const name = row.name.charAt(0).toLowerCase() + row.name.slice(1);
     const value = radioValue?.value ?? dropdownValue?.value ?? '';
@@ -32,16 +32,18 @@ const updateAttrs = () => {
 
 const setDefaultAttributes = () => {
   if (defaultAttributes?.nodes) {
-    defaultAttributes?.nodes.forEach((attr: Attribute) => {
-      const radio = document.querySelector(`.name-${attr.name}[value="${attr.value}"]`) as HTMLInputElement;
+    defaultAttributes?.nodes.forEach((attr: VariationAttribute) => {
+      const radio = document.querySelector(`.name-${attr.name?.toLowerCase()}[value="${attr.value}"]`) as HTMLInputElement;
       if (radio) radio.checked = true;
       const dropdown = document.querySelector(`#${attr.name}`) as HTMLSelectElement;
-      if (dropdown) dropdown.value = attr.value;
+      if (dropdown) dropdown.value = attr.value || '';
     });
   }
 };
 
-onMounted(() => {
+const className = (name: string) => `name-${name.toLowerCase()}`;
+
+onBeforeMount(() => {
   setDefaultAttributes();
   updateAttrs();
 });
@@ -65,7 +67,7 @@ onMounted(() => {
                 class="hidden"
                 :checked="index == 0"
                 type="radio"
-                :class="`name-${attr.name}`"
+                :class="`name-${attr.name.toLowerCase()}`"
                 :name="attr.name"
                 :value="option"
                 @change="updateAttrs" />
@@ -91,7 +93,7 @@ onMounted(() => {
                   class="hidden"
                   :checked="termIndex == 0"
                   type="radio"
-                  :class="`name-${attr.name}`"
+                  :class="className(attr.name)"
                   :name="attr.name"
                   :value="term.slug"
                   @change="updateAttrs" />
@@ -127,7 +129,7 @@ onMounted(() => {
                 class="hidden"
                 :checked="index == 0"
                 type="radio"
-                :class="`name-${attr.name}`"
+                :class="className(attr.name)"
                 :name="attr.name"
                 :value="term.slug"
                 @change="updateAttrs" />

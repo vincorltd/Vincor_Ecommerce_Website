@@ -1,274 +1,45 @@
 <script setup>
+const { getFilter, setFilter, isFiltersActive } = useFiltering();
+
 const props = defineProps({
+  terms: { type: Array, required: true },
   label: { type: String, default: '' },
-  hideEmpty: { type: Boolean, default: false },
+  openByDefault: { type: Boolean, default: true },
   showCount: { type: Boolean, default: false },
-  open: { type: Boolean, default: true },
 });
 
-const route = useRoute();
-const isOpen = ref(props.open);
-const categories = ref([]);
-
-const filterProductsByCategory = (categoryId) => {
-  console.log(`Filtering products by category: ${categoryId}`);
-};
-
-onMounted(async () => {
-  try {
-    const response = await $fetch('https://satchart.com/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: `
-          query getProductCategories($first: Int = 100) {
-            productCategories(first: $first, where: { orderby: COUNT, order: DESC, hideEmpty: true }) {
-              edges {
-                node {
-                  id
-                  name
-                  parent {
-                    node {
-                      id
-                      name
-                      slug
-                    }
-                  }
-                  children {
-                    edges {
-                      node {
-                        id
-                        name
-                        slug
-                        count
-                        parent {
-                          node {
-                            id
-                            name
-                            slug
-                          }
-                        }
-                      }
-                    }
-                  }
-                  slug
-                  count
-                  image {
-                    sourceUrl(size: MEDIUM_LARGE)
-                    altText
-                    title
-                  }
-                }
-              }
-            }
-          }
-        `,
-        variables: { first: 100 },
-      }),
-    });
-
-    categories.value = processCategories(response.data.productCategories.edges);
-    console.log('Processed categories for rendering:', categories.value);
-
-    const storedSelectedTerms = localStorage.getItem('selectedCategories');
-    if (storedSelectedTerms) {
-      selectedTerms.value = JSON.parse(storedSelectedTerms);
-    }
-
-    const storedVisibilityStates = localStorage.getItem('categoryVisibilityStates');
-    if (storedVisibilityStates) {
-      const visibilityStates = JSON.parse(storedVisibilityStates);
-      categories.value.forEach(category => {
-        if (visibilityStates[category.id]) {
-          category.showChildren = visibilityStates[category.id];
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error fetching product categories:', error);
-  }
-});
-
-function processCategories(edges) {
-  const categoriesMap = new Map();
-
-  edges.forEach(edge => {
-    const parentCategory = edge.node;
-
-    if (!parentCategory.parent && parentCategory.count > 0) {
-      if (!categoriesMap.has(parentCategory.id)) {
-        categoriesMap.set(parentCategory.id, { ...parentCategory, children: [], showChildren: false });
-      }
-
-      if (parentCategory.children && parentCategory.children.edges) {
-        parentCategory.children.edges.forEach(childEdge => {
-          const childNode = childEdge.node;
-          if (childNode.count > 0) {
-            if (!categoriesMap.has(childNode.id)) {
-              categoriesMap.set(childNode.id, { ...childNode, children: [] });
-            }
-            categoriesMap.get(parentCategory.id).children.push(categoriesMap.get(childNode.id));
-          }
-        });
-      }
-    }
-  });
-
-  return Array.from(categoriesMap.values()).filter(category => !category.parent && category.count > 0);
-}
-
-const { getFilter, setFilter, isFiltersActive } = await useFiltering();
+const isOpen = ref(props.openByDefault);
 const selectedTerms = ref(getFilter('category') || []);
 
-watch(selectedTerms, (newTerms) => {
-  localStorage.setItem('selectedCategories', JSON.stringify(newTerms));
-});
-
-watch(categories, (newCategories) => {
-  const visibilityStates = newCategories.reduce((acc, category) => {
-    acc[category.id] = category.showChildren;
-    return acc;
-  }, {});
-  localStorage.setItem('categoryVisibilityStates', JSON.stringify(visibilityStates));
-}, { deep: true });
-
+const route = useRoute();
 const categorySlug = route.params.categorySlug;
 if (categorySlug) selectedTerms.value = [categorySlug];
 
 watch(isFiltersActive, () => {
+  // uncheck all checkboxes when filters are cleared
   if (!isFiltersActive.value) selectedTerms.value = [];
 });
 
-const checkboxChanged = (childSlug, parentSlug) => {
-  console.log('Checkbox changed:', childSlug);
-  const index = selectedTerms.value.indexOf(childSlug);
-  if (index > -1) {
-    selectedTerms.value.splice(index, 1);
-  } else {
-    selectedTerms.value.push(childSlug);
-
-    const parentIndex = selectedTerms.value.indexOf(parentSlug);
-    if (parentIndex > -1) {
-      selectedTerms.value.splice(parentIndex, 1);
-    }
-  }
-  console.log('Updated selected terms:', selectedTerms.value);
-  setFilter('category', [...selectedTerms.value]);
-  filterProductsByCategory(childSlug);
-};
-
-const toggleVisibility = (category) => {
-  categories.value.forEach(cat => {
-    if (cat.id !== category.id) {
-      cat.showChildren = false;
-    }
-  });
-  category.showChildren = !category.showChildren;
-  console.log('Toggled visibility for category:', category.name, ', showChildren:', category.showChildren);
-};
-
-const parentCategorySelected = (category) => {
-  selectedTerms.value = [category.slug];
+// Update the URL when the checkbox is changed
+const checkboxChanged = () => {
   setFilter('category', selectedTerms.value);
-  console.log('Parent category selected:', category.name);
 };
-
-
-const sortedCategories = computed(() => {
-  return [...categories.value].sort((a, b) => a.name.localeCompare(b.name));
-});
 </script>
 
 <template>
-  <div v-if="categories.length">
+  <div v-if="terms.length">
     <div class="cursor-pointer flex font-semibold mt-8 justify-between items-center" @click="isOpen = !isOpen">
       <span>{{ label || $t('messages.shop.category', 2) }}</span>
-      <Icon name="ion:chevron-down-outline" class="transform transition-transform duration-300" :class="isOpen ? 'rotate-180' : ''" />
+      <Icon name="ion:chevron-down-outline" class="transform" :class="isOpen ? 'rotate-180' : ''" />
     </div>
-    <transition name="fade">
-      <div v-show="isOpen" class="mt-3 category-container">
-        <div v-for="category in sortedCategories" :key="category.id" class="category-block">
-          <div @click="() => { parentCategorySelected(category); toggleVisibility(category); }" class="parent-category">
-            {{ category.name }}
-            <Icon name="ion:chevron-forward-outline" class="transform transition-transform duration-300" :class="category.showChildren ? 'rotate-90' : ''" />
-          </div>
-          <transition name="fade">
-            <div v-show="category.showChildren" class="child-categories py-2">
-              <div v-for="child in category.children" :key="child.id">
-                <input :id="child.slug" class="mr-2" 
-                  :checked="selectedTerms.includes(child.slug)" 
-                  type="checkbox" 
-                  :value="child.slug" 
-                  @change="() => { checkboxChanged(child.slug, category.slug); }">
-                <label :for="child.slug">{{ child.name }}
-                  <span v-if="showCount">({{ child.count || 0 }})</span>
-                </label>
-              </div>
-            </div>
-          </transition>
-        </div>
+    <div v-show="isOpen" class="mt-3 mr-1 max-h-[240px] grid gap-1.5 overflow-auto custom-scrollbar">
+      <div v-for="term in terms" :key="term.slug" class="flex gap-2 items-start">
+        <input :id="term.slug" v-model="selectedTerms" type="checkbox" :value="term.slug" @change="checkboxChanged" />
+        <label :for="term.slug" class="cursor-pointer m-0 text-sm flex-1 leading-tight">
+          <span v-html="term.name" />
+          <small v-if="showCount" class="ml-1 text-gray-400 tabular-nums" aria-hidden="true">({{ term.count || 0 }})</small>
+        </label>
       </div>
-    </transition>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.category-container {
-  max-height: 750px; /* Increased the maximum height */
-  overflow-y: auto; /* Enable vertical scrolling */
-  padding-right: 10px; /* Add some padding to prevent the scrollbar from overlapping the content */
-}
-
-/* Custom Scrollbar Styles */
-.category-container::-webkit-scrollbar {
-  width: 6px; /* Width of the scrollbar */
-}
-
-.category-container::-webkit-scrollbar-track {
-  background: #f1f1f1; /* Background of the scrollbar track */
-  border-radius: 10px; /* Rounded corners for the track */
-}
-
-.category-container::-webkit-scrollbar-thumb {
-  background: #888; /* Color of the scrollbar thumb */
-  border-radius: 10px; /* Rounded corners for the thumb */
-}
-
-.category-container::-webkit-scrollbar-thumb:hover {
-  background: #555; /* Color of the scrollbar thumb on hover */
-}
-
-.category-block {
-  margin-bottom: 5px;
-}
-
-.parent-category {
-  cursor: pointer;
-  padding: 10px;
-  background-color: #f9f9f9;
-  border: 1px solid #ddd;
-}
-
-.child-categories {
-  padding-left: 20px;
-  background-color: #f0f0f0;
-}
-
-.chevron {
-  transition: transform 0.3s ease;
-}
-
-.rotate-90 {
-  transform: rotate(90deg);
-}
-
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s;
-}
-
-.fade-enter, .fade-leave-to {
-  opacity: 0;
-}
-</style>
