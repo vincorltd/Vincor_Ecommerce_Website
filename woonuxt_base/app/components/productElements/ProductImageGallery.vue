@@ -1,15 +1,15 @@
 <script setup lang="ts">
-const { fallbackImage } = useHelpers();
+const { FALLBACK_IMG } = useHelpers();
 
 const props = defineProps({
   mainImage: { type: Object, required: true },
   gallery: { type: Object, required: true },
-  node: { type: Object, required: true },
+  node: { type: Object as PropType<Product | Variation>, required: true },
   activeVariation: { type: Object, required: false },
 });
 
 const primaryImage = computed(() => ({
-  sourceUrl: props.mainImage.sourceUrl || fallbackImage,
+  sourceUrl: props.mainImage.sourceUrl || FALLBACK_IMG,
   title: props.mainImage.title,
   altText: props.mainImage.altText,
   databaseId: props.mainImage.databaseId,
@@ -41,14 +41,14 @@ const imgWidth = 640;
 
 <template>
   <div>
-    <SaleBadge :node="node" class="absolute text-base top-4 right-4" />
+    <SaleBadge :node class="absolute text-base top-4 right-4" />
     <NuxtImg
       class="rounded-xl object-contain w-full min-w-[350px]"
       :width="imgWidth"
       :height="imgWidth"
       :alt="imageToShow.altText || node.name"
       :title="imageToShow.title || node.name"
-      :src="imageToShow.sourceUrl || fallbackImage"
+      :src="imageToShow.sourceUrl || FALLBACK_IMG"
       fetchpriority="high"
       placeholder
       placeholder-class="blur-xl" />

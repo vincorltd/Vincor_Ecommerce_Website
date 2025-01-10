@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { fallbackImage } = useHelpers();
+const { FALLBACK_IMG } = useHelpers();
 const props = defineProps({
   node: { type: Object, required: true },
   imageLoading: { type: String as PropType<'lazy' | 'eager'>, default: 'lazy' },
@@ -18,11 +18,11 @@ const imgHeight = Math.round(imgWidth * 1.125);
       :width="imgWidth"
       :height="imgHeight"
       class="absolute inset-0 object-cover w-full h-full"
-      :src="node.image?.sourceUrl || fallbackImage"
+      :src="node.image?.sourceUrl || FALLBACK_IMG"
       :alt="node.image?.altText || node.name"
       :title="node.image?.title || node.name"
       :loading="imageLoading"
-      :sizes="`${imgWidth / 2}px md:${imgWidth}px`"
+      :sizes="`sm:${imgWidth / 2}px md:${imgWidth}px`"
       placeholder
       placeholder-class="blur-xl" />
     <div class="absolute inset-x-0 bottom-0 opacity-50 bg-gradient-to-t from-black to-transparent h-1/2" />
