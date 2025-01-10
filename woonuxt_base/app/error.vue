@@ -17,11 +17,6 @@ watch(
   () => route.path,
   () => closeCartAndMenu(),
 );
-
-useSeoMeta({
-  title: error?.statusCode ? `Error ${error.statusCode}` : 'Error',
-  description: error?.message || '',
-});
 </script>
 
 <template>

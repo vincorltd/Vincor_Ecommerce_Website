@@ -9,6 +9,9 @@ const order = ref(selectedOrder.value.order);
 watch([orderby, order], () => {
   setOrderQuery(orderby.value, order.value);
 });
+
+
+
 </script>
 
 <template>
@@ -19,7 +22,7 @@ watch([orderby, order], () => {
       @click="order = order === 'ASC' ? 'DESC' : 'ASC'">
       <Icon name="ion:filter-outline" size="18" :class="order === 'ASC' ? 'rotate-180' : ''" class="transition-transform transform transform-origin-center" />
     </button>
-    <select id="orderby-dropdown" v-model="orderby" class="bg-white rounded-l-none" aria-label="Order by">
+    <select v-model="orderby" class="bg-white rounded-l-none" aria-label="Order by">
       <option value="date">{{ $t('messages.general.latest') }}</option>
       <option value="alphabetically">{{ $t('messages.general.alphabetically') }}</option>
       <option value="discount">{{ $t('messages.shop.discount') }}</option>

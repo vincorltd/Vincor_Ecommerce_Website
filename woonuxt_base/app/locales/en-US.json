@@ -71,7 +71,6 @@
     },
     "shop": {
       "shopByCategory": "Shop by Category",
-      "popularProducts": "Popular Products",
       "availability": "Availability",
       "inStock": "In Stock",
       "outOfStock": "Out of Stock",
@@ -100,7 +99,7 @@
       "rateContent": "How was your experience?",
       "rateEmail": "Your email",
       "submit": "Submit",
-      "order": "Quote | Quotations",
+      "order": "Quote | Quotes",
       "orderSummary": "Quotation Summary",
       "orderReceived": "Quote Received",
       "orderNote": "Quote Note | Quote Notes",
@@ -122,18 +121,7 @@
       "searchProducts": "Search Products...",
       "couponCode": "Coupon Code",
       "downloadsRemaining": "Downloads remaining",
-      "expires": "Expires",
-      "productNotFound": "Product not found",
-      "productResultCount": {
-        "showing": "Showing",
-        "to": "to",
-        "of": "of"
-      },
-      "noProductsFound": {
-        "title": "No products found",
-        "subText": "Try adjusting your search or filter to find what you're looking for.",
-        "clearFiltersAndSearch": "Clear all filters and search"
-      }
+      "expires": "Expires"
     },
     "billing": {
       "billing": "Billing",

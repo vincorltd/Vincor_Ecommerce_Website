@@ -2,9 +2,8 @@ import { GqlLogin, GqlLogout, GqlRegisterCustomer, GqlResetPasswordEmail, GqlGet
 import type { RegisterCustomerInput, CreateAccountInput } from '#gql';
 
 export const useAuth = () => {
-  const { refreshCart } = useCart();
+  const { refreshCart, emptyCart, cart } = useCart();
   const { logGQLError, clearAllCookies } = useHelpers();
-  const router = useRouter();
 
   const customer = useState<Customer>('customer', () => ({ billing: {}, shipping: {} }));
   const viewer = useState<Viewer | null>('viewer', () => null);
@@ -20,7 +19,7 @@ export const useAuth = () => {
       const { loginWithCookies } = await GqlLogin(credentials);
 
       if (loginWithCookies?.status === 'SUCCESS') {
-        await refreshCart();
+        const { viewer } = await refreshCart();
         if (viewer === null) {
           return {
             success: false,
@@ -48,25 +47,20 @@ export const useAuth = () => {
 
   // Log out the user
   const logoutUser = async (): Promise<{ success: boolean; error: any }> => {
-    isPending.value = true;
+    viewer.value = null;
+    cart.value = null;
+    customer.value = { billing: {}, shipping: {} };
+
     try {
       const { logout } = await GqlLogout();
       if (logout) {
-        await refreshCart();
         clearAllCookies();
-        customer.value = { billing: {}, shipping: {} };
+        await emptyCart();
       }
       return { success: true, error: null };
-    } catch (error: any) {
+    } catch (error) {
       logGQLError(error);
       return { success: false, error };
-    } finally {
-      updateViewer(null);
-      if (router.currentRoute.value.path === '/my-account' && viewer.value === null) {
-        router.push('/my-account');
-      } else {
-        router.push('/');
-      }
     }
   };
 
@@ -96,7 +90,7 @@ export const useAuth = () => {
     isPending.value = false;
   };
 
-  const updateViewer = (payload: Viewer | null): void => {
+  const updateViewer = (payload: Viewer): void => {
     viewer.value = payload;
     isPending.value = false;
   };

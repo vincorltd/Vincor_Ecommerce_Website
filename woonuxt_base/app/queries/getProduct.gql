@@ -16,10 +16,15 @@ query getProduct($slug: ID!) {
     shortDescription
     attributes {
       nodes {
-        ...ProductAttribute
+        variation
+        name
+        id
+        options
+        label
+        scope
         ... on GlobalProductAttribute {
           slug
-          terms(where: { orderby: MENU_ORDER, order: ASC }) {
+          terms(where: {orderby: TERM_ORDER, order: ASC}) {
             nodes {
               name
               slug
@@ -30,16 +35,23 @@ query getProduct($slug: ID!) {
         }
       }
     }
-    ...ProductCategories
+    productCategories {
+      nodes {
+        databaseId
+        slug
+        name
+        count
+      }
+    }
     ...Terms
     ...SimpleProduct
     ...VariableProduct
-    ...ExternalProduct
     related(first: 5) {
       nodes {
+        name
+        slug
         ...SimpleProduct
         ...VariableProduct
-        ...ExternalProduct
       }
     }
     reviews {
@@ -47,31 +59,18 @@ query getProduct($slug: ID!) {
       edges {
         rating
         node {
-          ...Comment
+          content
+          id
+          date
+          author {
+            node {
+              name
+              avatar {
+                url
+              }
+            }
+          }
         }
-      }
-    }
-  }
-}
-
-fragment ProductAttribute on ProductAttribute {
-  variation
-  name
-  id
-  options
-  label
-  scope
-}
-
-fragment Comment on Comment {
-  content
-  id
-  date
-  author {
-    node {
-      name
-      avatar {
-        url
       }
     }
   }

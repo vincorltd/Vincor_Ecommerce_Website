@@ -1,26 +1,20 @@
 <script setup>
-
-const props = defineProps({
-  modelValue: { type: String, default: '' },
-  countryCode: { type: String, default: '' },
-});
-
-const { getStatesForCountry, countryStatesDict } = useCountry();
+const props = defineProps(['modelValue', 'countryCode', 'countryStates']);
 const emit = defineEmits(['update:modelValue']);
+const states = ref(props.countryStates || []);
 
 function select(evt) {
   emit('update:modelValue', evt.target.value);
 }
 
 async function updateState() {
-  if (props.countryCode && props.countryCode.length > 0) {
-    await getStatesForCountry(props.countryCode);
+  try {
+    const { countryStates } = await GqlGetStates({ country: props?.countryCode || 'IE' });
+    states.value = countryStates;
+  } catch (error) {
+    console.error(error);
   }
 }
-
-onMounted(() => {
-  updateState();
-});
 
 watch(
   () => props.countryCode,
@@ -31,9 +25,8 @@ watch(
 </script>
 
 <template>
-  <select @change="select" v-if="countryStatesDict[props.countryCode]?.length" class="h-[42px]">
-    <option value="" :selected="!props.modelValue">Select a state</option>
-    <option v-for="state in countryStatesDict[props.countryCode]" :key="state.code" :value="state.code" :selected="state.code === props.modelValue">
+  <select @change="select" v-if="states.length" class="h-[42px]">
+    <option v-for="state in states" :key="state.code" :value="state.code" :selected="state.code === props.modelValue">
       {{ state.name }}
     </option>
   </select>

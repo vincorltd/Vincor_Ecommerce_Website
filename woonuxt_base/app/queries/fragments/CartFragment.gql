@@ -1,10 +1,11 @@
-fragment Cart on Cart {
+#import "./fragments/SimpleProduct.gql"
+#import "./fragments/VariableProduct.gql"
+
+fragment CartFragment on Cart {
   total
-  rawTotal: total(format: RAW)
   subtotal
   totalTax
   discountTotal
-  rawDiscountTotal: discountTotal(format: RAW)
   shippingTotal
   chosenShippingMethods
   availableShippingMethods {
@@ -36,7 +37,6 @@ fragment Cart on Cart {
           type
           ...SimpleProduct
           ...VariableProduct
-          ...ExternalProduct
         }
       }
       variation {
@@ -44,11 +44,6 @@ fragment Cart on Cart {
           name
           slug
           price
-          stockStatus
-          regularPrice
-          rawRegularPrice: regularPrice(format: RAW)
-          salePrice
-          rawSalePrice: salePrice(format: RAW)
           image {
             sourceUrl(size: THUMBNAIL)
             cartSourceUrl: sourceUrl(size: THUMBNAIL)
@@ -57,13 +52,11 @@ fragment Cart on Cart {
           }
         }
       }
-      extraData {
+extraData {
         id
         key
         value
       }
-      subtotal
-      total
     }
   }
 }

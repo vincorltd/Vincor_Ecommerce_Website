@@ -1,5 +1,4 @@
 export default defineNuxtConfig({
-
   // Get all the pages, components, composables and plugins from the parent theme
   extends: ['./woonuxt_base'],
 

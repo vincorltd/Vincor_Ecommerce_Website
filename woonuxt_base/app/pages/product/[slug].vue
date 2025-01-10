@@ -5,7 +5,6 @@ const route = useRoute();
 const { storeSettings } = useAppConfig();
 const { arraysEqual, formatArray, checkForVariationTypeOfAny } = useHelpers();
 const { addToCart, isUpdatingCart } = useCart();
-const { t } = useI18n();
 const slug = route.params.slug as string;
 
 // Improved data fetching strategy
@@ -37,12 +36,11 @@ watchEffect(() => {
 // Your existing refs and computed properties
 const quantity = ref<number>(1);
 const activeVariation = ref<Variation | null>(null);
-const variation = ref<VariationAttribute[]>([]);
-const indexOfTypeAny = computed<number[]>(() => checkForVariationTypeOfAny(product.value));
+const variation = ref<Attribute[]>([]);
+const indexOfTypeAny = ref<number[]>([]);
 const attrValues = ref();
 const isSimpleProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.SIMPLE);
 const isVariableProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.VARIABLE);
-const isExternalProduct = computed<boolean>(() => product.value?.type === ProductTypesEnum.EXTERNAL);
 
 const hasNorsatTag = computed(() => {
   return product.value?.productTags?.nodes?.some(tag => tag.name.toLowerCase() === 'norsat');
@@ -264,12 +262,17 @@ useHead(() => ({
 }));
 </script>
 
-
 <template>
-  <main class="container relative py-6 xl:max-w-7xl">
-    <div v-if="product">
-      <SEOHead :info="product" />
-      <Breadcrumb :product class="mb-6" v-if="storeSettings.showBreadcrumbOnSingleProduct" />
+  <main 
+    v-if="product" 
+    class="container relative py-6 xl:max-w-7xl"
+  >
+    <div :key="product.databaseId">
+      <Breadcrumb 
+        :product 
+        class="mb-6" 
+        v-if="storeSettings.showBreadcrumbOnSingleProduct" 
+      />
 
       <div class="flex flex-col gap-10 md:flex-row md:justify-between lg:gap-24">
         <ProductImageGallery
