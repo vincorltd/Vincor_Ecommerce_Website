@@ -14,12 +14,12 @@
     "@heroicons/vue": "^2.1.5",
     "@nuxtjs/robots": "^5.0.1",
     "@nuxtjs/sitemap": "^7.0.0",
-    "@stripe/stripe-js": "^4.3.0",
+    "@stripe/stripe-js": "^4.10.0",
     "@vueform/slider": "^2.1.10",
-    "@vueuse/core": "^11.0.3",
     "swiper": "^11.1.14",
     "vue-carousel": "^0.18.0",
-    "vue-matomo": "^4.2.0"
+    "vue-matomo": "^4.2.0",
+    "@vueuse/core": "^12.2.0"
   },
   "devDependencies": {
     "@nuxt/icon": "^1.5.0",
