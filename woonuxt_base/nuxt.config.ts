@@ -2,7 +2,7 @@ import { createResolver } from '@nuxt/kit';
 const { resolve } = createResolver(import.meta.url);
 
 export default defineNuxtConfig({
-  compatibilityDate: '2024-07-09',
+  compatibilityDate: '2024-12-26',
   future: {
     compatibilityVersion: 4,
   },
@@ -17,6 +17,13 @@ export default defineNuxtConfig({
 
   experimental: {
     sharedPrerenderData: true,
+    buildCache: true,
+    defaults: {
+      nuxtLink: {
+        prefetch: true,
+        prefetchOn: { visibility: false },
+      },
+    },
   },
 
   plugins: [resolve('./app/plugins/init.ts')],
@@ -30,8 +37,9 @@ export default defineNuxtConfig({
   'graphql-client': {
     clients: {
       default: {
-        host: process.env.GQL_HOST || 'http://satchart.com/graphql',
-        // corsOptions: { mode: 'cors', credentials: 'include' },
+        host: process.env.GQL_HOST || 'http://localhost:4000/graphql',
+        corsOptions: { mode: 'cors', credentials: 'include' },
+        headers: { 'Origin': process.env.APP_HOST || 'http://localhost:3000' },
       },
     },
   },

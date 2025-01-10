@@ -18,7 +18,7 @@ const paColor = ref(filterQuery.value?.split('pa_color[')[1]?.split(']')[0]?.spl
 watch(
   () => route.query,
   () => {
-    filterQuery.value = route.query.filter;
+    filterQuery.value = route.query.filter as string;
     paColor.value = filterQuery.value?.split('pa_color[')[1]?.split(']')[0]?.split(',') || [];
   },
 );
@@ -27,11 +27,11 @@ const mainImage = computed<string>(() => props.node?.image?.producCardSourceUrl 
 const imagetoDisplay = computed<string>(() => {
   if (paColor.value.length) {
     const activeColorImage = props.node?.variations?.nodes.filter((variation) => {
-      const hasMatchingAttributes = variation.attributes?.nodes.some((attribute) => paColor.value.some((color) => attribute.value.includes(color)));
+      const hasMatchingAttributes = variation.attributes?.nodes.some((attribute) => paColor.value.some((color) => attribute?.value?.includes(color)));
       const hasMatchingSlug = paColor.value.some((color) => variation.slug?.includes(color));
       return hasMatchingAttributes || hasMatchingSlug;
     });
-    if (activeColorImage?.length) return activeColorImage[0].image?.producCardSourceUrl || activeColorImage[0].image?.sourceUrl || mainImage.value;
+    if (activeColorImage?.length) return activeColorImage[0]?.image?.producCardSourceUrl || activeColorImage[0]?.image?.sourceUrl || mainImage.value;
   }
   return mainImage.value;
 });
@@ -47,6 +47,8 @@ const imagetoDisplay = computed<string>(() => {
         :alt="node.image?.altText || node.name || 'Product image'"
         :title="node.image?.title || node.name"
         :loading="index <= 3 ? 'eager' : 'lazy'"
+        :sizes="`sm:${imgWidth / 2}px md:${imgWidth}px`"
+        class="rounded-lg object-top object-cover w-full aspect-9/8"
         placeholder
         placeholder-class="blur-xl"
         class="w-full h-48 object-cover product-image"

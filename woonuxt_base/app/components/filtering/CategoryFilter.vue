@@ -1,9 +1,11 @@
 <script setup>
+const { getFilter, setFilter, isFiltersActive } = useFiltering();
+
 const props = defineProps({
+  terms: { type: Array, required: true },
   label: { type: String, default: '' },
-  hideEmpty: { type: Boolean, default: false },
+  openByDefault: { type: Boolean, default: true },
   showCount: { type: Boolean, default: false },
-  open: { type: Boolean, default: true },
 });
 
 const route = useRoute();
@@ -123,57 +125,18 @@ function processCategories(edges) {
 const { getFilter, setFilter, isFiltersActive } = await useFiltering();
 const selectedTerms = ref(getFilter('category') || []);
 
-watch(selectedTerms, (newTerms) => {
-  localStorage.setItem('selectedCategories', JSON.stringify(newTerms));
-});
-
-watch(categories, (newCategories) => {
-  const visibilityStates = newCategories.reduce((acc, category) => {
-    acc[category.id] = category.showChildren;
-    return acc;
-  }, {});
-  localStorage.setItem('categoryVisibilityStates', JSON.stringify(visibilityStates));
-}, { deep: true });
-
+const route = useRoute();
 const categorySlug = route.params.categorySlug;
 if (categorySlug) selectedTerms.value = [categorySlug];
 
 watch(isFiltersActive, () => {
+  // uncheck all checkboxes when filters are cleared
   if (!isFiltersActive.value) selectedTerms.value = [];
 });
 
-const checkboxChanged = (childSlug, parentSlug) => {
-  console.log('Checkbox changed:', childSlug);
-  const index = selectedTerms.value.indexOf(childSlug);
-  if (index > -1) {
-    selectedTerms.value.splice(index, 1);
-  } else {
-    selectedTerms.value.push(childSlug);
-
-    const parentIndex = selectedTerms.value.indexOf(parentSlug);
-    if (parentIndex > -1) {
-      selectedTerms.value.splice(parentIndex, 1);
-    }
-  }
-  console.log('Updated selected terms:', selectedTerms.value);
-  setFilter('category', [...selectedTerms.value]);
-  filterProductsByCategory(childSlug);
-};
-
-const toggleVisibility = (category) => {
-  categories.value.forEach(cat => {
-    if (cat.id !== category.id) {
-      cat.showChildren = false;
-    }
-  });
-  category.showChildren = !category.showChildren;
-  console.log('Toggled visibility for category:', category.name, ', showChildren:', category.showChildren);
-};
-
-const parentCategorySelected = (category) => {
-  selectedTerms.value = [category.slug];
+// Update the URL when the checkbox is changed
+const checkboxChanged = () => {
   setFilter('category', selectedTerms.value);
-  console.log('Parent category selected:', category.name);
 };
 
 const sortedCategories = computed(() => {
@@ -284,7 +247,7 @@ defineExpose({ collapse });
           />
         </button>
       </div>
-    </transition>
+    </div>
   </div>
 </template>
 

@@ -1,3 +1,13 @@
+<script setup lang="ts">
+const { product } = defineProps({
+  product: { type: Object as PropType<Product>, required: true },
+});
+const { storeSettings } = useAppConfig();
+
+const initialTab = product.description ? 0 : 1;
+const show = ref(initialTab);
+</script>
+
 <template>
   <div>
     <nav class="border-b flex gap-8 tabs">

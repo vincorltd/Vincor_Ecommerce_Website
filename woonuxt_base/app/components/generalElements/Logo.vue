@@ -1,8 +1,10 @@
 <script setup lang="ts">
+const { siteName } = useAppConfig();
 const runtimeConfig = useRuntimeConfig();
 const img = useImage();
 
 const logoUrl = runtimeConfig?.public?.LOGO ? img(runtimeConfig?.public?.LOGO) : null;
+const faviconUrl = '/logo.svg';
 </script>
 
 <template>
