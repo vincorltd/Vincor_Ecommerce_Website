@@ -1,5 +1,32 @@
 <script setup lang="ts">
 const { cart, toggleCart, isUpdatingCart } = useCart();
+
+const calculateCartTotal = computed(() => {
+  if (!cart.value?.contents?.nodes) return 0;
+  
+  return cart.value.contents.nodes.reduce((total, item) => {
+    const productType = item.variation ? item.variation.node : item.product.node;
+    const basePrice = parseFloat(productType?.rawRegularPrice || productType?.rawSalePrice || '0');
+    let addonTotal = 0;
+    
+    try {
+      const extraData = JSON.parse(JSON.stringify(item.extraData));
+      const addons = JSON.parse(extraData ? extraData.find(el => el.key === 'addons')?.value || '[]' : '[]');
+      addonTotal = addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
+    } catch (e) {
+      console.error('Error parsing addons:', e);
+    }
+    
+    return total + ((basePrice + addonTotal) * item.quantity);
+  }, 0);
+});
+
+const formattedTotal = computed(() => {
+  return new Intl.NumberFormat('en-US', { 
+    style: 'currency', 
+    currency: 'USD' 
+  }).format(calculateCartTotal.value);
+});
 </script>
 
 <template>
@@ -23,7 +50,7 @@ const { cart, toggleCart, isUpdatingCart } = useCart();
             to="/checkout"
             @click.prevent="toggleCart()">
             <span class="mx-2">{{ $t('messages.shop.checkout') }}</span>
-            <span v-html="cart.total" />
+            <span>{{ formattedTotal }}</span>
           </NuxtLink>
         </div>
       </template>

@@ -1,5 +1,40 @@
 <script setup>
 const { cart, isUpdatingCart } = useCart();
+
+const hasItems = computed(() => {
+  return cart.value?.contents?.nodes?.length > 0;
+});
+
+const calculateSubtotal = computed(() => {
+  if (!cart.value?.contents?.nodes) return 0;
+  
+  const total = cart.value.contents.nodes.reduce((total, item) => {
+    const basePrice = parseFloat(
+      item.variation?.node?.rawRegularPrice || 
+      item.variation?.node?.rawSalePrice || 
+      item.product?.node?.rawRegularPrice || 
+      item.product?.node?.rawSalePrice || 
+      '0'
+    );
+    
+    let addonTotal = 0;
+    
+    try {
+      const extraData = JSON.parse(JSON.stringify(item.extraData));
+      const addons = JSON.parse(extraData ? extraData.find(el => el.key === 'addons')?.value || '[]' : '[]');
+      addonTotal = addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
+    } catch (e) {
+      console.error('Error parsing addons:', e);
+    }
+    
+    return total + ((basePrice + addonTotal) * item.quantity);
+  }, 0);
+
+  return new Intl.NumberFormat('en-US', { 
+    style: 'currency', 
+    currency: 'USD' 
+  }).format(total);
+});
 </script>
 
 <template>
@@ -15,7 +50,7 @@ const { cart, isUpdatingCart } = useCart();
     <div class="grid gap-1 text-sm font-semibold text-gray-500">
       <div class="flex justify-between">
         <span>{{ $t('messages.shop.subtotal') }}</span>
-        <span class="text-gray-700 tabular-nums" v-html="cart.subtotal" />
+        <span class="text-gray-700 tabular-nums">{{ calculateSubtotal }}</span>
       </div>
 
       <Transition name="scale-y" mode="out-in">
@@ -30,7 +65,7 @@ const { cart, isUpdatingCart } = useCart();
       </div>
     </div>
 
-    <slot></slot>
+    <slot v-if="cart.contents?.nodes?.length"></slot>
 
     <div v-if="isUpdatingCart" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50">
       <LoadingIcon />

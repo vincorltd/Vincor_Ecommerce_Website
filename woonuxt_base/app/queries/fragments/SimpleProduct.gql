@@ -1,7 +1,8 @@
 fragment SimpleProduct on SimpleProduct {
+  name
+  slug
   price
   rawPrice: price(format: RAW)
-  slug
   date
   regularPrice
   rawRegularPrice: regularPrice(format: RAW)
@@ -9,19 +10,21 @@ fragment SimpleProduct on SimpleProduct {
   rawSalePrice: salePrice(format: RAW)
   stockStatus
   stockQuantity
+  lowStockAmount
   averageRating
   weight
   length
   width
   height
   reviewCount
+  onSale
+  virtual
   image {
-    sourceUrl
+    ...Image
     cartSourceUrl: sourceUrl(size: THUMBNAIL)
-    altText
-    title
+    producCardSourceUrl: sourceUrl(size: WOOCOMMERCE_THUMBNAIL)
   }
-  galleryImages {
+  galleryImages(first: 20) {
     nodes {
       sourceUrl
       altText
