@@ -1,11 +1,10 @@
-#import "./fragments/SimpleProduct.gql"
-#import "./fragments/VariableProduct.gql"
-
-fragment CartFragment on Cart {
+fragment Cart on Cart {
   total
+  rawTotal: total(format: RAW)
   subtotal
   totalTax
   discountTotal
+  rawDiscountTotal: discountTotal(format: RAW)
   shippingTotal
   chosenShippingMethods
   availableShippingMethods {
@@ -37,6 +36,7 @@ fragment CartFragment on Cart {
           type
           ...SimpleProduct
           ...VariableProduct
+          ...ExternalProduct
         }
       }
       variation {
@@ -44,6 +44,11 @@ fragment CartFragment on Cart {
           name
           slug
           price
+          stockStatus
+          regularPrice
+          rawRegularPrice: regularPrice(format: RAW)
+          salePrice
+          rawSalePrice: salePrice(format: RAW)
           image {
             sourceUrl(size: THUMBNAIL)
             cartSourceUrl: sourceUrl(size: THUMBNAIL)
@@ -52,11 +57,13 @@ fragment CartFragment on Cart {
           }
         }
       }
-extraData {
+      extraData {
         id
         key
         value
       }
+      subtotal
+      total
     }
   }
 }

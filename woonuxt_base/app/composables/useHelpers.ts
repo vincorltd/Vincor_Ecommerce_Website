@@ -11,7 +11,7 @@ export function useHelpers() {
   const wooNuxtSEO = runtimeConfig.public?.WOO_NUXT_SEO as WooNuxtSEOItem[];
   const frontEndUrl = runtimeConfig.public?.FRONT_END_URL?.replace(/\/$/, '') || null;
   const isDev: boolean = process.env.NODE_ENV === 'development';
-  const fallbackImage = '/images/placeholder.jpg';
+  const FALLBACK_IMG = '/images/placeholder.jpg';
 
   /**
    * Toggles the mobile menu.
@@ -147,7 +147,7 @@ export function useHelpers() {
    * @param {string} price - The price string to format.
    * @returns {string} The formatted price string.
    */
-  const formatPrice = (price: string): string => parseFloat(price).toLocaleString('en-US', { style: 'currency', currency: 'EUR' });
+  const formatPrice = (price: string): string => parseFloat(price).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
   /**
    * Scrolls to the top of the page.
@@ -191,6 +191,19 @@ export function useHelpers() {
     }
   };
 
+  /**
+   * Get domain from URL
+   * @param {string} url - The URL to get the domain from.
+   * @returns {string} The domain.
+   */
+  const getDomain = (url: string): string => {
+    const match = url.match(/:\/\/(www[0-9]?\.)?(.[^/:]+)/i);
+    if (match !== null && match.length > 2 && typeof match[2] === 'string' && match[2].length > 0) {
+      return match[2];
+    }
+    return '';
+  };
+
   return {
     isShowingMobileMenu,
     wooNuxtVersionInfo,
@@ -199,7 +212,7 @@ export function useHelpers() {
     wooNuxtSEO,
     frontEndUrl,
     isDev,
-    fallbackImage,
+    FALLBACK_IMG,
     formatArray,
     arraysEqual,
     clearAllCookies,
@@ -216,5 +229,6 @@ export function useHelpers() {
     stripHtml,
     debounce,
     logGQLError,
+    getDomain,
   };
 }

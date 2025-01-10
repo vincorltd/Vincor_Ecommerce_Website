@@ -23,7 +23,7 @@ const linkTitle = computed<string>(() => viewer.value?.username || 'Sign In');
           </button>
         </div>
       </span>
-      <Icon v-else name="ion:person-outline" size="22" class="border border-transparent" />
+      <Icon v-else name="ion:person-outline" size="22" class="text-blue-300 border border-transparent" />
     </Transition>
   </NuxtLink>
 </template>
