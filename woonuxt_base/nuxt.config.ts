@@ -36,17 +36,43 @@ export default defineNuxtConfig({
           credentials: 'include'
         },
         headers: () => {
-          const origin = process.env.NODE_ENV === 'development' 
-            ? 'http://localhost:3000'
-            : process.env.NETLIFY_URL || 'https://vincor.com';
+          const hostname = process.client ? window.location.hostname : 
+            process.env.NETLIFY_URL || 'vincor.com';
+          
+          console.log('Debug - GraphQL Client Config:', {
+            hostname,
+            gqlHost: process.env.GQL_HOST,
+            netlifyUrl: process.env.NETLIFY_URL,
+            nodeEnv: process.env.NODE_ENV,
+            origin: `https://${hostname}`
+          });
           
           return {
-            'Origin': origin,
+            'Origin': `https://${hostname}`,
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-Debug-Environment': process.env.NODE_ENV || 'unknown'
+            'X-Debug-Environment': process.env.NODE_ENV || 'unknown',
+            'X-Host-Name': hostname,
+            'Referer': `https://${hostname}`
           };
+        },
+        onRequest: (config) => {
+          console.log('Debug - GraphQL Request:', {
+            url: config.url,
+            method: config.method,
+            headers: config.headers,
+            body: config.body
+          });
+        },
+        onRequestError: (error) => {
+          console.error('Debug - GraphQL Request Error:', {
+            message: error.message,
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            headers: error.response?.headers,
+            data: error.response?.data
+          });
         }
       },
     },

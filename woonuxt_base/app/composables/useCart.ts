@@ -20,7 +20,11 @@ export function useCart() {
    */
   async function refreshCart(): Promise<boolean> {
     try {
-      const { cart, customer, viewer, paymentGateways } = await GqlGetCart();
+      console.log('Debug - Starting cart refresh');
+      const response = await GqlGetCart();
+      console.log('Debug - GqlGetCart response:', response);
+      
+      const { cart, customer, viewer, paymentGateways } = response;
       const { updateCustomer, updateViewer } = useAuth();
 
       if (cart) updateCart(cart);
@@ -28,12 +32,19 @@ export function useCart() {
       if (viewer) updateViewer(viewer);
       if (paymentGateways) updatePaymentGateways(paymentGateways);
 
-      return true; // Cart was successfully refreshed
+      return true;
     } catch (error: any) {
+      console.error('Debug - Cart refresh error:', {
+        error,
+        response: error.response,
+        networkError: error.networkError,
+        graphQLErrors: error.graphQLErrors,
+        message: error.message
+      });
       logGQLError(error);
       clearAllCookies();
       resetInitialState();
-      throw new Error('Cart could not be refreshed');
+      throw new Error(`Cart could not be refreshed: ${error.message}`);
     } finally {
       isUpdatingCart.value = false;
     }
