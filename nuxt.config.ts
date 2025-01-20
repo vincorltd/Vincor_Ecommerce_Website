@@ -35,7 +35,7 @@ export default defineNuxtConfig({
     clients: {
       default: {
         host: process.env.GQL_HOST || 'http://satchart.com/graphql',
-        // corsOptions: { mode: 'cors', credentials: 'include' },
+        corsOptions: { mode: 'cors', credentials: 'include' },
       },
     },
   },
