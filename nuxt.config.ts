@@ -31,14 +31,23 @@ export default defineNuxtConfig({
 
   modules: ['@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
 
-  'graphql-client': {
-    clients: {
-      default: {
-        host: process.env.GQL_HOST || 'https://satchart.com/graphql',
-        corsOptions: { mode: 'cors', credentials: 'include' },
+'graphql-client': {
+  clients: {
+    default: {
+      host: process.env.GQL_HOST || 'https://satchart.com/graphql',
+      corsOptions: { 
+        mode: 'cors', 
+        credentials: 'include'
+      },
+      headers: { 
+        'Origin': 'https://vincor.com',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
       },
     },
   },
+},
 
   site: {
     url: 'https://vincor.com',

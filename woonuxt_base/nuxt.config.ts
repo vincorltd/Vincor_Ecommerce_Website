@@ -31,9 +31,16 @@ export default defineNuxtConfig({
     clients: {
       default: {
         host: process.env.GQL_HOST || 'https://satchart.com/graphql',
-        corsOptions: { mode: 'cors', credentials: 'include' },
-        headers: { 'Origin': process.env.APP_HOST || 'http://localhost:3000' },
-        
+        corsOptions: { 
+          mode: 'cors', 
+          credentials: 'include'
+        },
+        headers: { 
+          'Origin': 'https://vincor.com',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
       },
     },
   },
