@@ -40,30 +40,30 @@ export default defineNuxtConfig({
         credentials: 'include'
       },
       headers: () => {
-        const origin = process.env.NODE_ENV === 'development' 
-          ? 'http://localhost:3000'
-          : process.env.NETLIFY_URL || 'https://vincor.com';
+        // Get the current hostname from window if available
+        const hostname = process.client ? window.location.hostname : 
+          process.env.NETLIFY_URL || 'vincor.com';
         
-        console.log('Debug - GraphQL Client Config:', {
-          environment: process.env.NODE_ENV,
-          origin: origin,
-          host: process.env.GQL_HOST,
-          netlifyUrl: process.env.NETLIFY_URL
+        console.log('Debug - GraphQL Client Hostname:', {
+          hostname,
+          netlifyUrl: process.env.NETLIFY_URL,
+          nodeEnv: process.env.NODE_ENV
         });
         
         return {
-          'Origin': origin,
+          'Origin': `https://${hostname}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-          'X-Debug-Environment': process.env.NODE_ENV || 'unknown'
+          'X-Debug-Environment': process.env.NODE_ENV || 'unknown',
+          'X-Host-Name': hostname
         };
       },
       onRequest: (config) => {
         console.log('Debug - GraphQL Request:', {
           url: config.url,
           headers: config.headers,
-          method: config.method
+          hostname: process.client ? window.location.hostname : 'server'
         });
       },
       onRequestError: (error) => {
