@@ -35,12 +35,19 @@ export default defineNuxtConfig({
           mode: 'cors', 
           credentials: 'include'
         },
-        headers: { 
-          'Origin': 'https://vincor.com',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: () => {
+          const origin = process.env.NODE_ENV === 'development' 
+            ? 'http://localhost:3000'
+            : process.env.NETLIFY_URL || 'https://vincor.com';
+          
+          return {
+            'Origin': origin,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Debug-Environment': process.env.NODE_ENV || 'unknown'
+          };
+        }
       },
     },
   },

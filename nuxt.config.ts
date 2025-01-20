@@ -39,12 +39,40 @@ export default defineNuxtConfig({
         mode: 'cors', 
         credentials: 'include'
       },
-      headers: { 
-        'Origin': 'https://vincor.com',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
+      headers: () => {
+        const origin = process.env.NODE_ENV === 'development' 
+          ? 'http://localhost:3000'
+          : process.env.NETLIFY_URL || 'https://vincor.com';
+        
+        console.log('Debug - GraphQL Client Config:', {
+          environment: process.env.NODE_ENV,
+          origin: origin,
+          host: process.env.GQL_HOST,
+          netlifyUrl: process.env.NETLIFY_URL
+        });
+        
+        return {
+          'Origin': origin,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Debug-Environment': process.env.NODE_ENV || 'unknown'
+        };
       },
+      onRequest: (config) => {
+        console.log('Debug - GraphQL Request:', {
+          url: config.url,
+          headers: config.headers,
+          method: config.method
+        });
+      },
+      onRequestError: (error) => {
+        console.error('Debug - GraphQL Request Error:', {
+          message: error.message,
+          response: error.response,
+          request: error.request
+        });
+      }
     },
   },
 },
