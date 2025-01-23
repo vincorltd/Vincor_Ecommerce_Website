@@ -1,20 +1,59 @@
 <script setup lang="ts">
-const { updateItemQuantity, isUpdatingCart } = useCart();
+const { updateItemQuantity, isUpdatingCart, cart } = useCart();
 const { debounce } = useHelpers();
 
-const { item } = defineProps({ item: { type: Object, required: true } });
+const props = defineProps({
+  item: { type: Object, required: true }
+});
 
-const productType = computed(() => (item.variation ? item.variation?.node : item.product?.node));
-const quantity = ref(item.quantity);
+const quantity = ref(props.item.quantity);
+const productType = computed(() => (props.item.variation ? props.item.variation?.node : props.item.product?.node));
 const hasNoMoreStock = computed(() => (productType.value.stockQuantity ? productType.value.stockQuantity <= quantity.value : false));
 
-const incrementQuantity = () => quantity.value++;
-const decrementQuantity = () => quantity.value--;
+// Increment/Decrement functions
+const incrementQuantity = () => {
+  if (!hasNoMoreStock.value) {
+    quantity.value++;
+  }
+};
+
+const decrementQuantity = () => {
+  if (quantity.value > 0) {
+    quantity.value--;
+  }
+};
+
+// Calculate total with addons
+const calculateTotalWithAddons = (qty) => {
+  const basePrice = parseFloat(productType.value.rawRegularPrice || productType.value.rawSalePrice || 0);
+  let addonTotal = 0;
+  
+  try {
+    const extraData = JSON.parse(JSON.stringify(props.item.extraData));
+    const addons = JSON.parse(extraData ? extraData.find(el => el.key === 'addons')?.value || '[]' : '[]');
+    addonTotal = addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
+  } catch (e) {
+    console.error('Error parsing addons:', e);
+  }
+  
+  return (basePrice + addonTotal) * qty;
+};
+
+const onFocusOut = () => {
+  if (quantity.value === "") {
+    const cartItem = cart.value?.contents?.nodes?.find(node => node.key === props.item.key);
+    if (cartItem) {
+      quantity.value = cartItem.quantity;
+    }
+  }
+};
 
 watch(
   quantity,
-  debounce(() => {
-    updateItemQuantity(item.key, quantity.value >= 0 ? quantity.value : 0);
+  debounce(async () => {
+    if (quantity.value !== "") {
+      await updateItemQuantity(props.item.key, quantity.value);
+    }
   }, 250),
 );
 </script>
@@ -36,6 +75,7 @@ watch(
       min="0"
       :max="productType.stockQuantity"
       aria-label="Quantity"
+      @focusout="onFocusOut"
       class="flex items-center justify-center w-8 px-2 text-right text-xs focus:outline-none border-y border-gray-300" />
     <button
       title="Increase Quantity"

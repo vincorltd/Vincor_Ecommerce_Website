@@ -1,4 +1,5 @@
 export default defineNuxtConfig({
+
   // Get all the pages, components, composables and plugins from the parent theme
   extends: ['./woonuxt_base'],
 
@@ -30,14 +31,51 @@ export default defineNuxtConfig({
 
   modules: ['@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
 
-  'graphql-client': {
-    clients: {
-      default: {
-        host: process.env.GQL_HOST || 'http://satchart.com/graphql',
-        // corsOptions: { mode: 'cors', credentials: 'include' },
+'graphql-client': {
+  clients: {
+    default: {
+      host: process.env.GQL_HOST || 'https://satchart.com/graphql',
+      corsOptions: { 
+        mode: 'cors', 
+        credentials: 'include'
       },
+      headers: () => {
+        // Get the current hostname from window if available
+        const hostname = process.client ? window.location.hostname : 
+          process.env.NETLIFY_URL || 'vincor.com';
+        
+        console.log('Debug - GraphQL Client Hostname:', {
+          hostname,
+          netlifyUrl: process.env.NETLIFY_URL,
+          nodeEnv: process.env.NODE_ENV
+        });
+        
+        return {
+          'Origin': `https://${hostname}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Debug-Environment': process.env.NODE_ENV || 'unknown',
+          'X-Host-Name': hostname
+        };
+      },
+      onRequest: (config) => {
+        console.log('Debug - GraphQL Request:', {
+          url: config.url,
+          headers: config.headers,
+          hostname: process.client ? window.location.hostname : 'server'
+        });
+      },
+      onRequestError: (error) => {
+        console.error('Debug - GraphQL Request Error:', {
+          message: error.message,
+          response: error.response,
+          request: error.request
+        });
+      }
     },
   },
+},
 
   site: {
     url: 'https://vincor.com',
