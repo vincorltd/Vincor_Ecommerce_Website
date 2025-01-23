@@ -20,19 +20,8 @@ export function useCart() {
    */
   async function refreshCart(): Promise<boolean> {
     try {
-      console.log('Debug - Starting cart refresh with URL:', process.env.GQL_HOST);
       const response = await GqlGetCart();
-      console.log('Debug - GqlGetCart raw response:', response);
-      
       const { cart, customer, viewer, paymentGateways } = response;
-      
-      console.log('Debug - Cart Response Details:', {
-        hasCart: !!cart,
-        hasCustomer: !!customer,
-        hasViewer: !!viewer,
-        hasPaymentGateways: !!paymentGateways
-      });
-
       const { updateCustomer, updateViewer } = useAuth();
 
       if (cart) updateCart(cart);
@@ -42,13 +31,6 @@ export function useCart() {
 
       return true;
     } catch (error: any) {
-      console.error('Debug - Cart refresh detailed error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        networkError: error.networkError,
-        graphQLErrors: error.graphQLErrors
-      });
       logGQLError(error);
       clearAllCookies();
       resetInitialState();
@@ -79,15 +61,18 @@ export function useCart() {
   // add an item to the cart
   async function addToCart(input: AddToCartInput): Promise<void> {
     isUpdatingCart.value = true;
-
     try {
       const { addToCart } = await GqlAddToCart({ input });
-      if (addToCart?.cart) cart.value = addToCart.cart;
-      // Auto open the cart when an item is added to the cart if the setting is enabled
-      const { storeSettings } = useAppConfig();
-      if (storeSettings.autoOpenCart && !isShowingCart.value) toggleCart(true);
+      if (addToCart?.cart) {
+        cart.value = addToCart.cart;
+        if (storeSettings.autoOpenCart && !isShowingCart.value) {
+          toggleCart(true);
+        }
+      }
     } catch (error: any) {
       logGQLError(error);
+    } finally {
+      isUpdatingCart.value = false;
     }
   }
 
