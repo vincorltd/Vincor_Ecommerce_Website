@@ -35,30 +35,48 @@ const imagetoDisplay = computed<string>(() => {
   }
   return mainImage.value;
 });
+
+const imgWidth = 220;
+const imgHeight = Math.round(imgWidth * 1); // Make it square 1:1 ratio
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow-md overflow-hidden product-card">
-    <NuxtLink :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
+  <div class="relative group bg-white rounded-lg shadow-sm">
+    <NuxtLink v-if="node.slug" :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
       <SaleBadge :node="node" class="absolute top-2 right-2" />
-      <NuxtImg
-        v-if="imagetoDisplay"
-        :src="imagetoDisplay"
-        :alt="node.image?.altText || node.name || 'Product image'"
-        :title="node.image?.title || node.name"
-        :loading="index <= 3 ? 'eager' : 'lazy'"
-        placeholder
-        placeholder-class="blur-xl"
-        class="w-full h-48 object-cover product-image"
-      />
-    </NuxtLink>
-    <div class="p-4">
-      <NuxtLink :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
-        <h2 class="text-base font-semibold mb-2">{{ node.name }}</h2>
-      </NuxtLink>
-      <div class="flex justify-between items-center">
-        <ProductPrice class="text-lg font-bold" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
+      <div class="relative pt-[100%] w-full overflow-hidden rounded-lg bg-gray-50">
+        <NuxtImg
+          v-if="imagetoDisplay"
+          :width="imgWidth"
+          :height="imgHeight"
+          :src="imagetoDisplay"
+          :alt="node.image?.altText || node.name || 'Product image'"
+          :title="node.image?.title || node.name"
+          :loading="index <= 3 ? 'eager' : 'lazy'"
+          :sizes="`sm:${imgWidth / 2}px md:${imgWidth}px`"
+          class="absolute top-0 left-0 w-full h-full object-cover"
+          placeholder
+          placeholder-class="blur-xl"
+        />
       </div>
+    </NuxtLink>
+    <div class="p-2">
+      <NuxtLink v-if="node.slug" :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
+        <h2 class="mb-2 font-light leading-tight group-hover:text-primary">{{ node.name }}</h2>
+      </NuxtLink>
+      <ProductPrice class="text-sm" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
     </div>
   </div>
 </template>
+
+<style lang="postcss">
+.product-card img {
+  @apply rounded-lg w-full overflow-hidden;
+}
+
+.product-card:hover {
+  h2 {
+    @apply text-primary;
+  }
+}
+</style>

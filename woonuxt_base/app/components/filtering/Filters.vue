@@ -2,24 +2,48 @@
 const { isFiltersActive } = useFiltering();
 const { removeBodyClass } = useHelpers();
 const runtimeConfig = useRuntimeConfig();
+const isFiltersVisible = ref(true);
 
 const globalProductAttributes = runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES || [];
 // hide-categories prop is used to hide the category filter on the product category page
 const { hideCategories } = defineProps({ hideCategories: { type: Boolean, default: false } });
+
+const toggleFilters = () => {
+  isFiltersVisible.value = !isFiltersVisible.value;
+};
+
+// Add scroll detection
+onMounted(() => {
+  const filters = document.getElementById('filters');
+  let scrollTimeout;
+
+  filters?.addEventListener('scroll', () => {
+    filters.classList.add('scrolling');
+    clearTimeout(scrollTimeout);
+    
+    scrollTimeout = setTimeout(() => {
+      filters.classList.remove('scrolling');
+    }, 1000);
+  });
+});
 </script>
 
 <template>
-  <aside id="filters">
-    <OrderByDropdown class="block w-full md:hidden" />
-    <div class="relative z-30 grid mb-12 space-y-8 divide-y">
-      <CategoryFilter v-if="!hideCategories" />
-      <BrandFilter />
-            <LazyResetFiltersButton v-if="isFiltersActive" />
-            
-    </div>
-    
-  </aside>
-  <div class="fixed inset-0 z-50 hidden bg-black opacity-25 filter-overlay" @click="removeBodyClass('show-filters')"></div>
+  <div class="flex flex-col">
+    <SelectedFilters />
+    <aside id="filters" class="rounded-lg shadow-sm p-4 transition-all duration-300">
+      <div class="flex justify-between items-center mb-4">
+      </div>
+      <div class="space-y-4 transition-all duration-300">
+        <OrderByDropdown class="block w-full md:hidden mb-4" />
+        <div class="relative space-y-4">
+          <CategoryFilter v-if="!hideCategories" />
+          <BrandFilter />
+        </div>
+      </div>
+    </aside>
+  </div>
+  <div class="fixed inset-0 z-50 hidden bg-black/25 backdrop-blur-sm filter-overlay" @click="removeBodyClass('show-filters')"></div>
 </template>
 
 <style lang="postcss">
@@ -31,14 +55,38 @@ const { hideCategories } = defineProps({ hideCategories: { type: Boolean, defaul
 }
 
 #filters {
-  @apply w-[280px];
-
-  & .slider-connect {
-    @apply bg-primary;
-  }
+  @apply w-[280px] border border-gray-100;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
 
   &::-webkit-scrollbar {
-    display: none;
+    width: 4px;
+    opacity: 0;
+  }
+
+  &:hover::-webkit-scrollbar {
+    opacity: 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @apply bg-gray-200;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    opacity: 0;
+  }
+
+  &:hover::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-300;
+  }
+
+  /* Only show scrollbar when actively scrolling */
+  &:active::-webkit-scrollbar-thumb,
+  &.scrolling::-webkit-scrollbar-thumb {
+    opacity: 1;
   }
 
   input[type='checkbox'],
