@@ -8,7 +8,7 @@ const productsToShow = computed(() => products.value.slice((page.value - 1) * pr
 
 <template>
   <Transition name="fade" mode="out-in">
-    <section v-if="!!products.length" class="relative w-full">
+    <section v-if="!!products.length" class="relative w-full px-4 md:px-0">
       <TransitionGroup name="shrink" tag="div" mode="in-out" class="product-grid">
         <ProductCard v-for="(node, i) in productsToShow" :key="node.id || i" :node :index="i" />
       </TransitionGroup>
@@ -20,8 +20,8 @@ const productsToShow = computed(() => products.value.slice((page.value - 1) * pr
 
 <style lang="postcss" scoped>
 .product-grid {
-  @apply my-4 min-h-[300px] grid transition-all gap-4 lg:my-8;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  @apply my-4 min-h-[300px] grid transition-all gap-3 lg:my-8;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .product-grid:empty {
@@ -30,6 +30,7 @@ const productsToShow = computed(() => products.value.slice((page.value - 1) * pr
 
 @media (min-width: 768px) {
   .product-grid {
+    @apply gap-4;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }

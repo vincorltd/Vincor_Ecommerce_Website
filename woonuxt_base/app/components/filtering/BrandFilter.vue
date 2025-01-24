@@ -16,7 +16,7 @@ const { products } = useProducts();
 const isOpen = ref(props.open);
 const { getFilter, setFilter } = useFiltering();
 const selectedBrand = ref(getFilter('brand')[0] || '');
-const emit = defineEmits(['collapse-others']);
+const emit = defineEmits(['collapse-others', 'filter-selected']);
 
 // Brand name mapping with proper display names
 const brandDisplayNames: Record<string, string> = {
@@ -75,6 +75,7 @@ const brands = computed(() => {
 const selectBrand = (brandSlug: string) => {
   selectedBrand.value = selectedBrand.value === brandSlug ? '' : brandSlug;
   setFilter('brand', selectedBrand.value ? [selectedBrand.value] : []);
+  emit('filter-selected');
 };
 
 const isExpanded = ref(false);
@@ -126,6 +127,13 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('reset-filters', resetBrandFilter);
 });
+
+const handleBrandSelect = (brand) => {
+  // Existing brand selection logic
+  selectedBrand.value = brand.slug;
+  setFilter('brand', [selectedBrand.value]);
+  emit('filter-selected');
+};
 </script>
 
 <template>
