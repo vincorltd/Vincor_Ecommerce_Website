@@ -20,17 +20,17 @@ const productsToShow = computed(() => products.value.slice((page.value - 1) * pr
 
 <style lang="postcss" scoped>
 .product-grid {
-  @apply my-4 min-h-[600px] grid transition-all gap-8 lg:my-8;
-
-  grid-template-columns: repeat(2, 1fr);
+  @apply my-4 min-h-[300px] grid transition-all gap-4 lg:my-8;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
+
 .product-grid:empty {
   display: none;
 }
 
 @media (min-width: 768px) {
   .product-grid {
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }
 
