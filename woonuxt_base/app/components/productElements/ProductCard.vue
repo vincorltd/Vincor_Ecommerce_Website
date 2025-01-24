@@ -41,10 +41,10 @@ const imgHeight = Math.round(imgWidth * 1); // Make it square 1:1 ratio
 </script>
 
 <template>
-  <div class="relative group bg-white rounded-lg shadow-sm">
+  <div class="relative group bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
     <NuxtLink v-if="node.slug" :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
-      <SaleBadge :node="node" class="absolute top-2 right-2" />
-      <div class="relative pt-[100%] w-full overflow-hidden rounded-lg bg-gray-50">
+      <SaleBadge :node="node" class="absolute top-2 right-2 z-10" />
+      <div class="relative pt-[100%] w-full overflow-hidden rounded-t-lg bg-gray-50">
         <NuxtImg
           v-if="imagetoDisplay"
           :width="imgWidth"
@@ -54,29 +54,23 @@ const imgHeight = Math.round(imgWidth * 1); // Make it square 1:1 ratio
           :title="node.image?.title || node.name"
           :loading="index <= 3 ? 'eager' : 'lazy'"
           :sizes="`sm:${imgWidth / 2}px md:${imgWidth}px`"
-          class="absolute top-0 left-0 w-full h-full object-cover"
+          class="absolute inset-0 w-full h-full object-cover"
           placeholder
           placeholder-class="blur-xl"
         />
       </div>
+      <div class="p-3">
+        <h2 class="mb-2 text-sm font-medium leading-tight line-clamp-2 group-hover:text-primary">{{ node.name }}</h2>
+        <ProductPrice class="text-sm font-semibold" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
+      </div>
     </NuxtLink>
-    <div class="p-2">
-      <NuxtLink v-if="node.slug" :to="`/product/${decodeURIComponent(node.slug)}`" :title="node.name">
-        <h2 class="mb-2 font-light leading-tight group-hover:text-primary">{{ node.name }}</h2>
-      </NuxtLink>
-      <ProductPrice class="text-sm" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
-    </div>
   </div>
 </template>
 
-<style lang="postcss">
-.product-card img {
-  @apply rounded-lg w-full overflow-hidden;
-}
-
-.product-card:hover {
-  h2 {
-    @apply text-primary;
+<style lang="postcss" scoped>
+@media (max-width: 768px) {
+  .product-card {
+    @apply shadow rounded-lg;
   }
 }
 </style>

@@ -1,18 +1,30 @@
-<script setup>
-const { isFiltersActive } = useFiltering();
+<script setup lang="ts">
+import { TaxonomyEnum } from '#woo';
+
+const { isFiltersActive, clearAllFilters } = useFiltering();
 const { removeBodyClass } = useHelpers();
 const runtimeConfig = useRuntimeConfig();
-const isFiltersVisible = ref(true);
+const { storeSettings } = useAppConfig();
 
-const globalProductAttributes = runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES || [];
-// hide-categories prop is used to hide the category filter on the product category page
 const { hideCategories } = defineProps({ hideCategories: { type: Boolean, default: false } });
 
-const toggleFilters = () => {
-  isFiltersVisible.value = !isFiltersVisible.value;
+const globalProductAttributes = (runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES as WooNuxtFilter[]) || [];
+const taxonomies = globalProductAttributes.map((attr) => attr?.slug?.toUpperCase().replace('_', '')) as TaxonomyEnum[];
+const { data } = await useAsyncGql('getAllTerms', { taxonomies: [...taxonomies, TaxonomyEnum.PRODUCTCATEGORY] });
+const terms = data.value?.terms?.nodes || [];
+
+const productCategoryTerms = terms.filter((term) => term.taxonomyName === 'product_cat');
+const attributesWithTerms = globalProductAttributes.map((attr) => ({ 
+  ...attr, 
+  terms: terms.filter((term) => term.taxonomyName === attr.slug) 
+}));
+
+const closeFilterMenu = () => {
+  if (window.innerWidth <= 768) {
+    removeBodyClass('show-filters');
+  }
 };
 
-// Add scroll detection
 onMounted(() => {
   const filters = document.getElementById('filters');
   let scrollTimeout;
@@ -30,15 +42,17 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col">
-    <SelectedFilters />
+    <SelectedFilters class="hidden lg:block" />
     <aside id="filters" class="rounded-lg shadow-sm p-4 transition-all duration-300">
-      <div class="flex justify-between items-center mb-4">
-      </div>
-      <div class="space-y-4 transition-all duration-300">
-        <OrderByDropdown class="block w-full md:hidden mb-4" />
-        <div class="relative space-y-4">
-          <CategoryFilter v-if="!hideCategories" />
-          <BrandFilter />
+      <SelectedFilters class="lg:hidden mb-6" />
+      <div class="space-y-6 transition-all duration-300">
+        <OrderByDropdown class="block w-full lg:hidden mb-6" />
+        <div class="relative space-y-6">
+          <CategoryFilter 
+            v-if="!hideCategories" 
+            :terms="productCategoryTerms" 
+            @filter-selected="closeFilterMenu" />
+          <BrandFilter @filter-selected="closeFilterMenu" />
         </div>
       </div>
     </aside>
@@ -173,17 +187,29 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   #filters {
-    @apply bg-white h-full p-8 transform pl-2 transition-all ease-in-out bottom-0 left-4 -translate-x-[110vw] duration-300 overflow-auto fixed;
-
-    box-shadow:
-      -100px 0 0 white,
-      -200px 0 0 white,
-      -300px 0 0 white;
-    z-index: 60;
+    @apply fixed inset-y-0 left-0 w-[280px] bg-white z-[60] transform -translate-x-full transition-transform duration-300 ease-in-out;
+    height: 100vh;
+    max-height: none;
+    overflow-y: auto;
+    box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
   }
 
   .show-filters #filters {
-    @apply transform-none;
+    @apply translate-x-0;
+  }
+
+  .filter-overlay {
+    @apply z-50;
+  }
+
+  .show-filters .filter-overlay {
+    @apply block;
+  }
+
+  .show-filters {
+    @apply overflow-hidden;
+    position: fixed;
+    width: 100%;
   }
 }
 </style>

@@ -21,7 +21,7 @@ const isOpen = ref(props.open);
 const { getFilter, setFilter } = useFiltering();
 const selectedCategory = ref(getFilter('category')[0] || '');
 const selectedTerms = ref(getFilter('category') || []);
-const emit = defineEmits(['collapse-others']);
+const emit = defineEmits(['collapse-others', 'filter-selected']);
 const isExpanded = ref(false);
 
 const { categories: categoryData, loading } = useCategories();
@@ -77,7 +77,33 @@ const filteredCategories = computed(() => {
 });
 
 const visibleCategories = computed(() => {
-  return isExpanded.value ? filteredCategories.value : filteredCategories.value?.slice(0, 7);
+  let filtered = filteredCategories.value;
+  
+  // Filter by search term if it exists
+  if (categorySearch.value) {
+    const searchTerm = categorySearch.value.toLowerCase();
+    filtered = filtered.filter(category => {
+      const matchesCategory = category.name.toLowerCase().includes(searchTerm);
+      const matchesChildren = category.children.some(child => 
+        child.name.toLowerCase().includes(searchTerm)
+      );
+      
+      // If a child matches the search, expand the parent category
+      if (matchesChildren) {
+        category.showChildren = true;
+      }
+      
+      return matchesCategory || matchesChildren;
+    });
+  } else {
+    // When search is cleared, collapse all categories
+    filtered.forEach(category => {
+      category.showChildren = false;
+    });
+  }
+
+  // Apply expansion limit
+  return isExpanded.value ? filtered : filtered?.slice(0, 7);
 });
 
 const router = useRouter();
@@ -98,11 +124,13 @@ const checkboxChanged = (childSlug: string, parentSlug: string) => {
     }
   }
   setFilter('category', selectedTerms.value);
+  emit('filter-selected');
 };
 
 const parentCategorySelected = (category: Category) => {
-  selectedCategory.value = selectedCategory.value === category.slug ? '' : category.slug;
-  setFilter('category', selectedCategory.value ? [selectedCategory.value] : []);
+  selectedCategory.value = category.slug;
+  selectedTerms.value = [category.slug];
+  setFilter('category', [category.slug]);
 };
 
 const toggleVisibility = (category: Category) => {
