@@ -8,13 +8,10 @@ export const useCategories = () => {
   
       loading.value = true;
       try {
-        console.log('Fetching categories...');
         const { data } = await useAsyncGql('getProductCategories');
-        console.log('Raw GraphQL response:', data.value);
         
         if (data.value?.productCategories?.edges) {
           const processedCategories = processCategories(data.value.productCategories.edges);
-          console.log('Processed categories:', processedCategories);
           categories.value = processedCategories;
         } else {
           console.warn('No categories data found in response');
@@ -29,39 +26,41 @@ export const useCategories = () => {
   
     const processCategories = (edges: any[]) => {
       const categoriesMap = new Map();
-  
-      edges.forEach(edge => {
-        const parentCategory = edge.node;
-        console.log('Processing category:', parentCategory);
-  
-        if (!parentCategory.parent?.node && parentCategory.count > 0) {
-          if (!categoriesMap.has(parentCategory.id)) {
-            categoriesMap.set(parentCategory.id, { 
-              ...parentCategory, 
-              children: [], 
-              showChildren: false 
+      
+      edges.forEach(({ node }) => {
+        if (!node.parent && node.count > 0) {
+          if (!categoriesMap.has(node.id)) {
+            categoriesMap.set(node.id, {
+              id: node.id,
+              name: node.name,
+              slug: node.slug,
+              count: node.count,
+              children: [],
+              showChildren: false
             });
-          }
-  
-          if (parentCategory.children?.edges) {
-            parentCategory.children.edges.forEach(childEdge => {
-              const childNode = childEdge.node;
-              if (childNode.count > 0) {
-                const currentParent = categoriesMap.get(parentCategory.id);
-                currentParent.children.push({
-                  ...childNode,
-                  children: [],
-                  showChildren: false
-                });
-              }
-            });
+
+            // Process children if they exist
+            if (node.children?.edges) {
+              const parentCategory = categoriesMap.get(node.id);
+              node.children.edges.forEach(({ node: child }) => {
+                if (child.count > 0) {
+                  parentCategory.children.push({
+                    id: child.id,
+                    name: child.name,
+                    slug: child.slug,
+                    count: child.count,
+                    children: [],
+                    showChildren: false
+                  });
+                }
+              });
+            }
           }
         }
       });
-  
-      const result = Array.from(categoriesMap.values());
-      console.log('Final processed categories:', result);
-      return result;
+
+      return Array.from(categoriesMap.values())
+        .sort((a, b) => a.name.localeCompare(b.name));
     };
   
     // Fetch categories immediately and when the composable is used

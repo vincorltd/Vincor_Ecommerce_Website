@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue';
+
 interface Brand {
   name: string;
   slug: string;
@@ -94,66 +96,118 @@ const collapse = () => {
 
 // Expose collapse method to parent
 defineExpose({ collapse });
+
+const visibleBrands = computed(() => {
+  return isExpanded.value ? brands.value : brands.value.slice(0, 7);
+});
+
+const brandSearch = ref('');
+
+const filteredBrands = computed(() => {
+  if (!brandSearch.value) return visibleBrands.value;
+  
+  return brands.value.filter(brand => 
+    brand.displayName.toLowerCase().includes(brandSearch.value.toLowerCase())
+  );
+});
+
+const resetBrandFilter = () => {
+  selectedBrand.value = '';
+  isExpanded.value = false;
+  // Close the brand section
+  isOpen.value = false;
+};
+
+// Listen for reset event
+onMounted(() => {
+  window.addEventListener('reset-filters', resetBrandFilter);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('reset-filters', resetBrandFilter);
+});
 </script>
 
 <template>
-  <div v-if="brands.length" class="filter-content">
-    <div
-      class="cursor-pointer flex items-center justify-between font-semibold mt-8 text-gray-700 hover:text-gray-900 transition-colors duration-200"
+  <div class="filter-section">
+    <div 
       @click="isOpen = !isOpen"
+      class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/80 rounded-lg group border-b border-gray-100"
     >
-      <span>{{ label || 'Brands' }}</span>
-      <Icon
-        name="ion:chevron-down-outline"
-        class="transform transition-transform duration-300 text-gray-500"
-        :class="isOpen ? 'rotate-180' : ''"
+      <div class="flex items-center gap-2">
+        <h3 class="text-[17px] font-bold text-gray-900 group-hover:text-primary-dark transition-colors tracking-wide">
+          Brands
+        </h3>
+        <span v-if="brands.length > 7" class="text-sm text-gray-500">
+          ({{ brands.length }})
+        </span>
+      </div>
+      <Icon 
+        :name="isOpen ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" 
+        class="w-5 h-5 text-gray-500 group-hover:text-primary-dark transition-colors" 
       />
     </div>
-    <transition name="fade">
-      <div v-show="isOpen">
+
+    <div v-show="isOpen" class="pt-3">
+      <div class="mb-3">
+        <input
+          v-model="brandSearch"
+          type="search"
+          placeholder="Search brands..."
+          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-primary"
+        />
+      </div>
+
+      <div class="brand-container">
         <div 
-          class="mt-3 brand-container"
-          :style="{
-            maxHeight: containerHeight,
-            overflow: isExpanded.value ? 'visible' : 'auto'
-          }"
+          class="brand-items-wrapper" 
+          :class="{ 'items-expanded': isExpanded }"
+          :style="{ maxHeight: isExpanded ? 'none' : '300px', overflow: isExpanded ? 'visible' : 'auto' }"
         >
-          <div 
-            class="brand-items-wrapper"
-            :class="{ 'items-expanded': isExpanded }"
-          >
-            <div
-              v-for="brand in brands"
-              :key="brand.slug"
-              class="brand-block mb-2"
+          <div v-for="brand in filteredBrands" :key="brand.slug" class="brand-block">
+            <button 
+              @click="selectBrand(brand.slug)"
+              class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50/90 transition-all duration-200"
+              :class="{ 'bg-primary-50/90': selectedBrand === brand.slug }"
             >
-              <div
-                @click="selectBrand(brand.slug)"
-                class="brand-item cursor-pointer flex items-center justify-between font-medium text-gray-600 hover:text-gray-800 p-2 rounded-lg transition-all duration-200"
-                :class="{
-                  'bg-primary/5 text-primary': selectedBrand === brand.slug,
-                  'bg-gray-50': selectedBrand !== brand.slug
-                }"
-              >
-                {{ brand.displayName }}
+              <input
+                type="checkbox"
+                :checked="selectedBrand === brand.slug"
+                class="form-checkbox h-4 w-4 text-primary rounded border-gray-300"
+              />
+              <div class="flex items-center gap-2">
+                <img 
+                  :src="`/images/brands/${brand.slug}.png`" 
+                  :alt="brand.displayName"
+                  class="h-6 w-auto object-contain"
+                  @error="$event.target.style.display='none'"
+                />
+                <span class="text-[16px] font-semibold text-gray-800 hover:text-primary-dark">
+                  {{ brand.displayName }}
+                </span>
               </div>
-            </div>
+            </button>
           </div>
         </div>
-        
-        <button
-          v-if="brands.length > 5"
+
+        <div 
+          v-if="brands.length > 7 && !isExpanded" 
+          class="scroll-indicator"
+        ></div>
+
+        <button 
+          v-if="brands.length > 7"
           @click="toggleExpand"
           class="w-full mt-2 py-2 px-4 text-sm text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
         >
-          <span>{{ isExpanded ? 'Show Less' : 'Show More' }}</span>
+          <span>{{ isExpanded ? 'Show Less' : `See All ${brands.length} Brands` }}</span>
           <Icon
-            :name="isExpanded ? 'ion:chevron-up-outline' : 'ion:chevron-down-outline'"
+            :name="isExpanded ? 'heroicons:chevron-up' : 'heroicons:chevron-down'"
             class="w-4 h-4"
           />
         </button>
       </div>
-    </transition>
+    </div>
   </div>
 </template>
 
@@ -164,26 +218,41 @@ defineExpose({ collapse });
 }
 
 .brand-container {
-  padding-right: 10px;
-  transition: all 0.3s ease-in-out;
+  position: relative;
 }
 
-.brand-container::-webkit-scrollbar {
-  width: 6px;
-}
+.brand-items-wrapper {
+  transition: max-height 0.3s ease;
+  overflow-y: auto;
 
-.brand-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
+  &::-webkit-scrollbar {
+    width: 4px;
+    opacity: 0;
+  }
 
-.brand-container::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 10px;
-}
+  &:hover::-webkit-scrollbar {
+    opacity: 0;
+  }
 
-.brand-container::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  &::-webkit-scrollbar-thumb {
+    @apply bg-gray-200;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  &:hover::-webkit-scrollbar-thumb {
+    opacity: 0;
+  }
+
+  &:hover::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-300;
+  }
+
+  /* Only show scrollbar when actively scrolling */
+  &:active::-webkit-scrollbar-thumb {
+    opacity: 1;
+  }
 }
 
 .brand-block {
@@ -242,4 +311,39 @@ defineExpose({ collapse });
 .items-expanded > div:nth-child(9) { transition-delay: 0.45s; }
 .items-expanded > div:nth-child(10) { transition-delay: 0.5s; }
 /* Add more if needed */
+
+.brand-container {
+  @apply transition-all duration-300;
+}
+
+.brand-block {
+  @apply mb-1;
+}
+
+img {
+  max-height: 24px;
+  min-width: 24px;
+}
+
+.scroll-indicator {
+  position: absolute;
+  bottom: 40px; /* Adjusted to account for button height */
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent, white);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.items-expanded {
+  max-height: none !important;
+}
+
+/* Update the button styling to be more visible */
+button.see-all-brands {
+  @apply w-full mt-2 py-2.5 px-4 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 
+         rounded-lg transition-all duration-200 flex items-center justify-center gap-2 
+         shadow-sm hover:shadow border border-gray-200 hover:border-gray-300;
+}
 </style>
