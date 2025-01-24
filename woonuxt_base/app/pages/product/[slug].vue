@@ -310,10 +310,10 @@ useHead(() => ({
               <p class="text-base font-semibold">MSRP: {{ type.regularPrice }}</p>
               <p class="text-base text-red-600 font-semibold">Sale Price: Call for pricing</p>
             </div>
-            <div class="flex items-center gap-2">
+            <!-- <div class="flex items-center gap-2">
               <span class="text-gray-400">{{ $t('messages.shop.availability') }}: </span>
               <StockStatus :stockStatus @updated="mergeLiveStockStatus" />
-            </div>
+            </div> -->
             <div class="flex items-center gap-2" v-if="storeSettings.showSKU">
               <span class="text-gray-400">{{ $t('messages.shop.sku') }}: </span>
               <span>{{ product.sku || 'N/A' }}</span>
