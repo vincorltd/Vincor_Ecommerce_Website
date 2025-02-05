@@ -174,6 +174,10 @@ const resetCategoryFilter = () => {
 // Listen for reset event
 onMounted(() => {
   window.addEventListener('reset-filters', resetCategoryFilter);
+  // Remove placeholder after initial render
+  nextTick(() => {
+    showPlaceholder.value = false;
+  });
 });
 
 // Update localStorage when visibility changes
@@ -196,76 +200,90 @@ onUnmounted(() => {
 });
 
 defineExpose({ collapse });
+
+// Add a loading placeholder state
+const showPlaceholder = ref(true);
 </script>
 
 <template>
   <div class="filter-section">
-    <div 
-      @click="isOpen = !isOpen"
-      class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/80 rounded-lg group"
-    >
-      <h3 class="text-[17px] font-bold text-gray-900 group-hover:text-primary-dark transition-colors tracking-wide">Categories</h3>
-      <Icon 
-        :name="isOpen ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" 
-        class="w-5 h-5 text-gray-500 group-hover:text-primary-dark transition-colors" 
-      />
+    <!-- Loading placeholder -->
+    <div v-if="showPlaceholder && loading" class="animate-pulse">
+      <div class="h-12 bg-gray-100 rounded-lg mb-3"></div>
+      <div class="space-y-2">
+        <div v-for="n in 5" :key="n" class="h-10 bg-gray-100 rounded-lg"></div>
+      </div>
     </div>
 
-    <div v-show="isOpen" class="pt-3">
-      <div class="mb-3">
-        <input
-          v-model="categorySearch"
-          type="search"
-          placeholder="Search categories..."
-          class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-primary"
+    <!-- Actual content -->
+    <div v-show="!loading">
+      <div 
+        @click="isOpen = !isOpen"
+        class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/80 rounded-lg group"
+      >
+        <h3 class="text-[17px] font-bold text-gray-900 group-hover:text-primary-dark transition-colors tracking-wide">Categories</h3>
+        <Icon 
+          :name="isOpen ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" 
+          class="w-5 h-5 text-gray-500 group-hover:text-primary-dark transition-colors" 
         />
       </div>
 
-      <div class="category-container">
-        <div class="category-items-wrapper">
-          <div v-for="category in visibleCategories" 
-               :key="category.id" 
-               class="category-block mb-2">
-            <div 
-              @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
-              class="parent-category cursor-pointer flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/90 transition-all duration-200"
-              :class="{ 'bg-primary-50/90 text-primary-dark': selectedCategory === category.slug }"
-            >
-              <span class="text-[16px] font-semibold text-gray-800">{{ category.name }}</span>
-              <Icon 
-                v-if="category.children.length"
-                name="heroicons:chevron-right"
-                class="w-5 h-5 transition-transform text-gray-500"
-                :class="{ 'rotate-90 text-primary-dark': category.showChildren }"
-              />
-            </div>
-            
-            <div v-if="category.children.length && category.showChildren" 
-                 class="ml-4 mt-2 space-y-2">
-              <div v-for="child in category.children"
-                   :key="child.id"
-                   class="flex items-center">
-                <label class="flex items-center gap-3 cursor-pointer p-2.5 hover:bg-gray-50/90 rounded-lg w-full transition-colors duration-200">
-                  <input
-                    type="checkbox"
-                    :checked="selectedTerms.includes(child.slug)"
-                    @change="() => checkboxChanged(child.slug, category.slug)"
-                    class="form-checkbox h-4 w-4 text-primary rounded border-gray-300"
-                  />
-                  <span class="text-[15px] font-medium text-gray-700 hover:text-primary-dark">{{ child.name }}</span>
-                </label>
+      <div v-show="isOpen" class="pt-3">
+        <div class="mb-3">
+          <input
+            v-model="categorySearch"
+            type="search"
+            placeholder="Search categories..."
+            class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-primary"
+          />
+        </div>
+
+        <div class="category-container">
+          <div class="category-items-wrapper">
+            <div v-for="category in visibleCategories" 
+                 :key="category.id" 
+                 class="category-block mb-2">
+              <div 
+                @click="() => { parentCategorySelected(category); toggleVisibility(category); }"
+                class="parent-category cursor-pointer flex items-center justify-between p-3 rounded-lg hover:bg-gray-50/90 transition-all duration-200"
+                :class="{ 'bg-primary-50/90 text-primary-dark': selectedCategory === category.slug }"
+              >
+                <span class="text-[16px] font-semibold text-gray-800">{{ category.name }}</span>
+                <Icon 
+                  v-if="category.children.length"
+                  name="heroicons:chevron-right"
+                  class="w-5 h-5 transition-transform text-gray-500"
+                  :class="{ 'rotate-90 text-primary-dark': category.showChildren }"
+                />
+              </div>
+              
+              <div v-if="category.children.length && category.showChildren" 
+                   class="ml-4 mt-2 space-y-2">
+                <div v-for="child in category.children"
+                     :key="child.id"
+                     class="flex items-center">
+                  <label class="flex items-center gap-3 cursor-pointer p-2.5 hover:bg-gray-50/90 rounded-lg w-full transition-colors duration-200">
+                    <input
+                      type="checkbox"
+                      :checked="selectedTerms.includes(child.slug)"
+                      @change="() => checkboxChanged(child.slug, category.slug)"
+                      class="form-checkbox h-4 w-4 text-primary rounded border-gray-300"
+                    />
+                    <span class="text-[15px] font-medium text-gray-700 hover:text-primary-dark">{{ child.name }}</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
+          
+          <button 
+            v-if="categories.length > 7"
+            @click="toggleExpand"
+            class="w-full mt-2 text-sm text-primary hover:text-primary-dark transition-colors"
+          >
+            {{ isExpanded ? 'Show Less' : 'See All Categories' }}
+          </button>
         </div>
-        
-        <button 
-          v-if="categories.length > 7"
-          @click="toggleExpand"
-          class="w-full mt-2 text-sm text-primary hover:text-primary-dark transition-colors"
-        >
-          {{ isExpanded ? 'Show Less' : 'See All Categories' }}
-        </button>
       </div>
     </div>
   </div>
@@ -288,5 +306,19 @@ defineExpose({ collapse });
 .fade-enter-from,
 .fade-leave-to {
   @apply opacity-0;
+}
+
+.animate-pulse {
+  @apply relative;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
 }
 </style>

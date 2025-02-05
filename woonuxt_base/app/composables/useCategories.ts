@@ -1,12 +1,14 @@
 export const useCategories = () => {
     const categories = useState<any>('categories', () => []);
-    const loading = ref(false);
+    const loading = ref(true);
     const error = ref(null);
   
     const fetchCategories = async () => {
-      if (categories.value.length) return categories.value;
+      if (categories.value.length) {
+        loading.value = false;
+        return categories.value;
+      }
   
-      loading.value = true;
       try {
         const { data } = await useAsyncGql('getProductCategories');
         
@@ -63,10 +65,10 @@ export const useCategories = () => {
         .sort((a, b) => a.name.localeCompare(b.name));
     };
   
-    // Fetch categories immediately and when the composable is used
-    onMounted(() => {
+    // Only fetch on client-side
+    if (process.client) {
       fetchCategories();
-    });
+    }
   
     return {
       categories: computed(() => categories.value),
