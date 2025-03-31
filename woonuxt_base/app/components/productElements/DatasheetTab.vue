@@ -8,7 +8,7 @@ const props = defineProps<{
 // Computed property for the PDF URL
 const pdfUrl = computed(() => {
   const sku = props.product.sku;
-  return `https://files.vincor.com/${sku}.pdf`;
+  return `https://satchart.com/pdf/${sku}.pdf`;
 });
 </script>
 

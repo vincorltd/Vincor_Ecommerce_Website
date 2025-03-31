@@ -112,7 +112,7 @@ const showTab = (index) => {
 
 const pdfUrl = computed(() => {
   const sku = props.productSku;
-  return `https://files.vincor.com/${sku}.pdf`;
+  return `https://satchart.com/pdf/${sku}.pdf`;
 });
 
 const checkPdfExists = async () => {

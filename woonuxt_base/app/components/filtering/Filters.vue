@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { TaxonomyEnum } from '#woo';
+import { ClientOnly } from '#components';
+import { defineAsyncComponent } from 'vue';
 
 const { isFiltersActive, clearAllFilters } = useFiltering();
 const { removeBodyClass } = useHelpers();
@@ -38,6 +40,10 @@ onMounted(() => {
     }, 1000);
   });
 });
+
+const CategoryFilter = defineAsyncComponent(() => 
+  import('./CategoryFilter.vue')
+);
 </script>
 
 <template>
@@ -48,10 +54,22 @@ onMounted(() => {
       <div class="space-y-6 transition-all duration-300">
         <OrderByDropdown class="block w-full lg:hidden mb-6" />
         <div class="relative space-y-6">
-          <CategoryFilter 
-            v-if="!hideCategories" 
-            :terms="productCategoryTerms" 
-            @filter-selected="closeFilterMenu" />
+          <ClientOnly>
+            <Suspense>
+              <CategoryFilter 
+                v-if="!hideCategories" 
+                :terms="productCategoryTerms" 
+                @filter-selected="closeFilterMenu" />
+              <template #fallback>
+                <div class="animate-pulse">
+                  <div class="h-12 bg-gray-100 rounded-lg mb-3"></div>
+                  <div class="space-y-2">
+                    <div v-for="n in 5" :key="n" class="h-10 bg-gray-100 rounded-lg"></div>
+                  </div>
+                </div>
+              </template>
+            </Suspense>
+          </ClientOnly>
           <BrandFilter @filter-selected="closeFilterMenu" />
         </div>
       </div>
