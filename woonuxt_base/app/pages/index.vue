@@ -66,15 +66,6 @@ useSeoMeta({
   </div>
 </div>
 
-    <section class="container mx-auto my-16 px-4">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-gray-800">Popular Categories</h2>
-        <NuxtLink class="text-blue-600 hover:underline" to="/categories">{{ $t('messages.general.viewAll') }}</NuxtLink>
-      </div>
-      <div class="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        <CategoryCard v-for="(category, i) in productCategories" :key="i" class="w-full bg-white shadow-md rounded-lg overflow-hidden" :node="category" />
-      </div>
-    </section>
 
     <section class="container mx-auto my-16 px-4" v-if="popularProducts">
       <div class="flex items-center justify-between mb-6">
