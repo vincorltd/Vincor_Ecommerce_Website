@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import type { PropType } from 'vue';
+import { useFiltering } from '~/composables/useFiltering';
+import { useCategories } from '~/composables/useCategories';
+import { useProducts } from '~/composables/useProducts';
 
 interface Category {
   id: string;
@@ -24,10 +29,13 @@ const selectedTerms = ref(getFilter('category') || []);
 const emit = defineEmits(['collapse-others', 'filter-selected']);
 const isExpanded = ref(false);
 
-const { categories: categoryData, loading } = useCategories();
-const { updateProductList, products } = useProducts();
+// Get categories from the composable
+const { categories: categoriesData, loading } = useCategories();
 
-const categories = computed(() => categoryData.value || []);
+// Update the categories computed property to use the composable data
+const categories = computed(() => categoriesData.value || []);
+
+const { updateProductList, products } = useProducts();
 
 const selectedBrand = computed(() => getFilter('brand')[0] || '');
 
@@ -44,8 +52,8 @@ const filteredCategories = computed(() => {
   if (!brandProducts?.length) return categories.value;
 
   // Get all category slugs from these products
-  const categoryIds = new Set();
-  const categoryParentIds = new Set();
+  const categoryIds = new Set<string>();
+  const categoryParentIds = new Set<string>();
 
   brandProducts.forEach(product => {
     product.productCategories?.nodes?.forEach(category => {
@@ -60,7 +68,7 @@ const filteredCategories = computed(() => {
   });
 
   // Filter categories to only show those that have products with the selected brand
-  return categories.value?.filter(category => {
+  return categories.value?.filter((category: Category) => {
     // Include if category is a parent of matching products
     const isParentCategory = categoryParentIds.has(category.slug);
     
@@ -68,7 +76,7 @@ const filteredCategories = computed(() => {
     const hasMatchingProducts = categoryIds.has(category.slug);
     
     // Include if any children have matching products
-    const hasMatchingChildren = category.children?.some(child => 
+    const hasMatchingChildren = category.children?.some((child: Category) => 
       categoryIds.has(child.slug)
     );
 
@@ -76,15 +84,19 @@ const filteredCategories = computed(() => {
   }) || [];
 });
 
+const router = useRouter();
+
+const categorySearch = ref('');
+
 const visibleCategories = computed(() => {
   let filtered = filteredCategories.value;
   
   // Filter by search term if it exists
   if (categorySearch.value) {
     const searchTerm = categorySearch.value.toLowerCase();
-    filtered = filtered.filter(category => {
+    filtered = filtered.filter((category: Category) => {
       const matchesCategory = category.name.toLowerCase().includes(searchTerm);
-      const matchesChildren = category.children.some(child => 
+      const matchesChildren = category.children.some((child: Category) => 
         child.name.toLowerCase().includes(searchTerm)
       );
       
@@ -97,7 +109,7 @@ const visibleCategories = computed(() => {
     });
   } else {
     // When search is cleared, collapse all categories
-    filtered.forEach(category => {
+    filtered.forEach((category: Category) => {
       category.showChildren = false;
     });
   }
@@ -105,10 +117,6 @@ const visibleCategories = computed(() => {
   // Apply expansion limit
   return isExpanded.value ? filtered : filtered?.slice(0, 7);
 });
-
-const router = useRouter();
-
-const categorySearch = ref('');
 
 const checkboxChanged = (childSlug: string, parentSlug: string) => {
   const index = selectedTerms.value.indexOf(childSlug);
@@ -160,7 +168,7 @@ const resetCategoryFilter = () => {
   selectedCategory.value = '';
   selectedTerms.value = [];
   // Close all parent categories
-  categories.value?.forEach(category => {
+  categories.value?.forEach((category: Category) => {
     category.showChildren = false;
   });
   // Clear all stored states
@@ -174,16 +182,12 @@ const resetCategoryFilter = () => {
 // Listen for reset event
 onMounted(() => {
   window.addEventListener('reset-filters', resetCategoryFilter);
-  // Remove placeholder after initial render
-  nextTick(() => {
-    showPlaceholder.value = false;
-  });
 });
 
 // Update localStorage when visibility changes
-watch(categories, (newCategories) => {
+watch(categories, (newCategories: Category[]) => {
   if (!newCategories) return;
-  const visibilityStates = newCategories.reduce((acc, category) => {
+  const visibilityStates = newCategories.reduce((acc: Record<string, boolean>, category: Category) => {
     acc[category.id] = category.showChildren;
     return acc;
   }, {});
@@ -200,15 +204,12 @@ onUnmounted(() => {
 });
 
 defineExpose({ collapse });
-
-// Add a loading placeholder state
-const showPlaceholder = ref(true);
 </script>
 
 <template>
   <div class="filter-section">
     <!-- Loading placeholder -->
-    <div v-if="showPlaceholder && loading" class="animate-pulse">
+    <div v-if="loading" class="animate-pulse">
       <div class="h-12 bg-gray-100 rounded-lg mb-3"></div>
       <div class="space-y-2">
         <div v-for="n in 5" :key="n" class="h-10 bg-gray-100 rounded-lg"></div>
@@ -221,7 +222,12 @@ const showPlaceholder = ref(true);
         @click="isOpen = !isOpen"
         class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50/80 rounded-lg group"
       >
-        <h3 class="text-[17px] font-bold text-gray-900 group-hover:text-primary-dark transition-colors tracking-wide">Categories</h3>
+        <div class="flex items-center gap-2">
+          <h3 class="text-[17px] font-bold text-gray-900 group-hover:text-primary-dark transition-colors tracking-wide">Categories</h3>
+          <span v-if="categories.length" class="text-sm text-gray-500">
+            ({{ categories.length }})
+          </span>
+        </div>
         <Icon 
           :name="isOpen ? 'heroicons:chevron-up' : 'heroicons:chevron-down'" 
           class="w-5 h-5 text-gray-500 group-hover:text-primary-dark transition-colors" 
@@ -238,7 +244,7 @@ const showPlaceholder = ref(true);
           />
         </div>
 
-        <div class="category-container">
+        <div v-if="visibleCategories.length > 0" class="category-container">
           <div class="category-items-wrapper">
             <div v-for="category in visibleCategories" 
                  :key="category.id" 
@@ -283,6 +289,9 @@ const showPlaceholder = ref(true);
           >
             {{ isExpanded ? 'Show Less' : 'See All Categories' }}
           </button>
+        </div>
+        <div v-else class="p-4 text-center text-gray-500">
+          No categories found
         </div>
       </div>
     </div>

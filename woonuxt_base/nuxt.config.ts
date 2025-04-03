@@ -110,8 +110,12 @@ export default defineNuxtConfig({
       '/products/**': { swr: 3600 },
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
-      '/api/sitemap-urls': { cors: true }
+      '/api/sitemap-urls': { cors: true },
+      '/api/categories': { swr: true },
     },
+    prerender: {
+      routes: ['/api/categories']
+    }
   },
 
   // Multilingual support
