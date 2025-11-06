@@ -1,6 +1,9 @@
 {
   "name": "woonuxt",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev --host localhost",
