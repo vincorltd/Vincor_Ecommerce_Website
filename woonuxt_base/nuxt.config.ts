@@ -2,7 +2,7 @@ import { createResolver } from '@nuxt/kit';
 const { resolve } = createResolver(import.meta.url);
 
 export default defineNuxtConfig({
-  compatibilityDate: '2024-07-09',
+  compatibilityDate: '2025-11-06',
   future: {
     compatibilityVersion: 4,
   },
@@ -80,8 +80,9 @@ export default defineNuxtConfig({
 
   image: {
     // provider: "netlify",
-
     domains: ["satchart.com"],
+    quality: 80,
+    format: ['webp', 'jpg'],
   },
 
 
@@ -128,7 +129,7 @@ export default defineNuxtConfig({
       { code: 'it_IT', file: 'it-IT.json', name: 'Italiano 🇮🇹' },
       { code: 'pt_BR', file: 'pt-BR.json', name: 'Português 🇧🇷' },
     ],
-    langDir: 'locales',
+    langDir: resolve('./app/locales'),
     defaultLocale: 'en_US',
     strategy: 'no_prefix',
   },

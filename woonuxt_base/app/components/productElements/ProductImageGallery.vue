@@ -49,9 +49,7 @@ const imgWidth = 640;
       :alt="imageToShow.altText || node.name"
       :title="imageToShow.title || node.name"
       :src="imageToShow.sourceUrl || FALLBACK_IMG"
-      fetchpriority="high"
-      placeholder
-      placeholder-class="blur-xl" />
+      fetchpriority="high" />
     <div v-if="gallery.nodes.length" class="my-4 gallery-images">
       <NuxtImg
         v-for="galleryImg in galleryImages"
@@ -62,8 +60,6 @@ const imgWidth = 640;
         :src="galleryImg.sourceUrl"
         :alt="galleryImg.altText || node.name"
         :title="galleryImg.title || node.name"
-        placeholder
-        placeholder-class="blur-xl"
         loading="lazy"
         @click.native="changeImage(galleryImg)" />
     </div>
