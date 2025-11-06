@@ -1,9 +1,11 @@
 [template.environment]
   GQL_HOST = "WordPress URL https://satchart.com/graphql"
   NUXT_IMAGE_DOMAINS = "satchart.com"
+  NODE_VERSION = "22.21.1"
 
 [build]
   command = "nuxt generate"
+  NODE_VERSION = "22.21.1"
 
 [images]
   remote_images = ["https://i0.wp.com/*"]
