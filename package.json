@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev --host",
-    "dev:ssl": "NODE_TLS_REJECT_UNAUTHORIZED=0 nuxt dev --https --ssl-cert localhost.pem --ssl-key localhost-key.pem",
+    "dev": "nuxt dev --host localhost",
+    "dev:ssl": "NODE_TLS_REJECT_UNAUTHORIZED=0 nuxt dev --host localhost --https --ssl-cert localhost.pem --ssl-key localhost-key.pem",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
@@ -12,28 +12,28 @@
   },
   "dependencies": {
     "@heroicons/vue": "^2.1.5",
-    "@nuxtjs/robots": "^5.0.1",
-    "@nuxtjs/sitemap": "^7.0.0",
-    "@stripe/stripe-js": "^4.3.0",
+    "@nuxtjs/robots": "^5.5.6",
+    "@nuxtjs/sitemap": "^7.4.7",
+    "@stripe/stripe-js": "^8.3.0",
     "@vueform/slider": "^2.1.10",
-    "@vueuse/core": "^12.2.0",
-    "swiper": "^11.1.14",
+    "@vueuse/core": "^14.0.0",
+    "swiper": "^12.0.3",
     "vue-carousel": "^0.18.0",
     "vue-matomo": "^4.2.0"
   },
   "devDependencies": {
-    "@nuxt/icon": "^1.5.0",
-    "@nuxt/image": "1.7.1",
-    "@nuxtjs/i18n": "^8.5.1",
-    "@nuxtjs/tailwindcss": "^6.12.1",
-    "@tailwindcss/typography": "^0.5.14",
-    "nuxt": "^3.13.0",
-    "nuxt-graphql-client": "^0.2.36",
-    "nuxt-gtag": "^3.0.2",
-    "prettier": "^3.3.3",
-    "woonuxt-settings": "^1.0.60"
+    "@nuxt/icon": "^2.1.0",
+    "@nuxt/image": "^2.0.0",
+    "@nuxtjs/i18n": "^10.2.0",
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "nuxt": "^4.2.0",
+    "nuxt-graphql-client": "^0.2.46",
+    "nuxt-gtag": "^4.1.0",
+    "prettier": "^3.6.2",
+    "woonuxt-settings": "^1.2.1"
   },
   "overrides": {
-    "sharp": "0.32.6"
+    "sharp": "0.33.5"
   }
 }

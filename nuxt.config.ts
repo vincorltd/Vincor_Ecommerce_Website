@@ -27,6 +27,9 @@ export default defineNuxtConfig({
 
   devtools: {
     enabled: true,
+    timeline: {
+      enabled: true
+    }
   },
 
   modules: ['@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
