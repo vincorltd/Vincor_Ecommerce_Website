@@ -2,11 +2,11 @@
 const runtimeConfig = useRuntimeConfig();
 const img = useImage();
 
-const logoUrl = runtimeConfig?.public?.LOGO ? img(runtimeConfig?.public?.LOGO) : null;
+const logoUrl = runtimeConfig?.public?.LOGO ? img(runtimeConfig?.public?.LOGO) : 'https://satchart.com/wp-content/uploads/vincor_media/Artboard-1-copy-2.png';
 </script>
 
 <template>
   <NuxtLink to="/">
-    <img src="https://satchart.com/wp-content/uploads/vincor_media/Artboard-1-copy-2.png" alt="Logo" class=" w-32 lg:w-full" />
+    <img :src="logoUrl" alt="Vincor Logo" class="w-32 lg:w-full" />
   </NuxtLink>
 </template>

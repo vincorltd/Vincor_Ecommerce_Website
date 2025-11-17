@@ -64,6 +64,18 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
       initialised = true;
 
+      // Initialize user session (check if logged in)
+      const { initSession } = useAuth();
+      console.log('Debug - Initializing user session...');
+      await initSession();
+      console.log('Debug - User session initialized');
+
+      // Hydrate cart addons store from localStorage BEFORE refreshing cart
+      const { useCartAddonsStore } = await import('~/stores/cart-addons');
+      const addonsStore = useCartAddonsStore();
+      addonsStore.hydrate();
+      console.log('Debug - Cart addons store hydrated');
+
       const { refreshCart } = useCart();
       console.log('Debug - Refreshing cart...');
       const success: boolean = await refreshCart();
@@ -115,7 +127,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     const isDev = process.env.NODE_ENV === 'development';
 
     // Check if the current route path is one of the pages that need immediate initialization
-    const pagesToInitializeRightAway = ['/checkout', '/my-account', '/order-summary'];
+    const pagesToInitializeRightAway = ['/checkout', '/my-account', '/order-summary', '/product/'];
     const currentPath = useRoute().path;
     const isPathThatRequiresInit = pagesToInitializeRightAway.some((page) => currentPath.includes(page));
 

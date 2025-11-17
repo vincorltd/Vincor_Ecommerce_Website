@@ -1,0 +1,529 @@
+{
+  "lastUpdated": "2025-11-14T18:23:01.807Z",
+  "totalCategories": 72,
+  "topLevelCategories": 19,
+  "categories": [
+    {
+      "id": "157",
+      "name": "Accessories (Misc)",
+      "slug": "accessories",
+      "count": 15,
+      "children": [
+        {
+          "id": "160",
+          "name": "Line Amplifiers",
+          "slug": "line-amplifiers",
+          "count": 1,
+          "children": []
+        },
+        {
+          "id": "85",
+          "name": "Power Supplies",
+          "slug": "powersupplies",
+          "count": 2,
+          "children": []
+        },
+        {
+          "id": "82",
+          "name": "Surge and Protection",
+          "slug": "surgenprotect",
+          "count": 3,
+          "children": []
+        },
+        {
+          "id": "86",
+          "name": "Switches",
+          "slug": "switches",
+          "count": 2,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "name": "Actuators",
+      "slug": "actuators",
+      "count": 6,
+      "children": [
+        {
+          "id": "87",
+          "name": "Thomson-Saginaw",
+          "slug": "thomson-sag",
+          "count": 5,
+          "children": []
+        },
+        {
+          "id": "88",
+          "name": "Venture Mfg. Co.",
+          "slug": "venturemfg",
+          "count": 5,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "231",
+      "name": "Amplifiers",
+      "slug": "amps",
+      "count": 10,
+      "children": [
+        {
+          "id": "232",
+          "name": "BUCS",
+          "slug": "bucs-amps",
+          "count": 7,
+          "children": []
+        },
+        {
+          "id": "233",
+          "name": "SSPA",
+          "slug": "sspa",
+          "count": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "89",
+      "name": "Antennas",
+      "slug": "antennas",
+      "count": 35,
+      "children": [
+        {
+          "id": "92",
+          "name": "DH Satellite",
+          "slug": "dh-satellite",
+          "count": 25,
+          "children": [
+            {
+              "id": "192",
+              "name": "3.0",
+              "slug": "3-0",
+              "count": 5,
+              "children": []
+            },
+            {
+              "id": "193",
+              "name": "3.7",
+              "slug": "3-7",
+              "count": 6,
+              "children": []
+            },
+            {
+              "id": "194",
+              "name": "3.8",
+              "slug": "3-8",
+              "count": 5,
+              "children": []
+            },
+            {
+              "id": "195",
+              "name": "4.2",
+              "slug": "4-2",
+              "count": 5,
+              "children": []
+            },
+            {
+              "id": "196",
+              "name": "4.5",
+              "slug": "4-5",
+              "count": 2,
+              "children": []
+            },
+            {
+              "id": "197",
+              "name": "5.0",
+              "slug": "5-0",
+              "count": 2,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "236",
+          "name": "Kratos",
+          "slug": "kratos-antennas",
+          "count": 9,
+          "children": [
+            {
+              "id": "237",
+              "name": "4.5",
+              "slug": "kratos4-5",
+              "count": 9,
+              "children": [
+                {
+                  "id": "247",
+                  "name": "Accessories",
+                  "slug": "accessories-kratos4-5",
+                  "count": 2,
+                  "children": []
+                },
+                {
+                  "id": "243",
+                  "name": "C - Band",
+                  "slug": "c-band-kratos4-5",
+                  "count": 4,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "93",
+          "name": "Prodelin",
+          "slug": "prodelin",
+          "count": 2,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "166",
+      "name": "Cable and Connectors",
+      "slug": "cable-and-connectors",
+      "count": 17,
+      "children": []
+    },
+    {
+      "id": "20",
+      "name": "Cables and Connectors",
+      "slug": "cablesnconnectors",
+      "count": 19,
+      "children": [
+        {
+          "id": "94",
+          "name": "Coaxial Cable",
+          "slug": "coaxial-cable",
+          "count": 5,
+          "children": []
+        },
+        {
+          "id": "95",
+          "name": "Connectors",
+          "slug": "connectors",
+          "count": 9,
+          "children": []
+        },
+        {
+          "id": "96",
+          "name": "Other",
+          "slug": "other",
+          "count": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "242",
+      "name": "Component",
+      "slug": "component",
+      "count": 8,
+      "children": []
+    },
+    {
+      "id": "21",
+      "name": "Controllers",
+      "slug": "controllers",
+      "count": 3,
+      "children": [
+        {
+          "id": "98",
+          "name": "Research Concepts",
+          "slug": "research-concepts",
+          "count": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "name": "Dehydrators",
+      "slug": "dehydrators",
+      "count": 23,
+      "children": [
+        {
+          "id": "102",
+          "name": "Accessories",
+          "slug": "accessories-dehydrators",
+          "count": 11,
+          "children": []
+        },
+        {
+          "id": "101",
+          "name": "Dehydrators",
+          "slug": "dehydrators-dehydrators",
+          "count": 6,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "24",
+      "name": "Deicing &amp; Dish Covers",
+      "slug": "deicingncovers",
+      "count": 7,
+      "children": [
+        {
+          "id": "103",
+          "name": "Dish Covers",
+          "slug": "dish-covers",
+          "count": 5,
+          "children": []
+        },
+        {
+          "id": "104",
+          "name": "Electric - Tape",
+          "slug": "electric-tape",
+          "count": 1,
+          "children": []
+        },
+        {
+          "id": "105",
+          "name": "Hydrophobic Coating",
+          "slug": "hydrophobic-coating",
+          "count": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "26",
+      "name": "Feedhorn",
+      "slug": "feedhorns",
+      "count": 13,
+      "children": [
+        {
+          "id": "110",
+          "name": "C-Band",
+          "slug": "c-band",
+          "count": 2,
+          "children": []
+        },
+        {
+          "id": "112",
+          "name": "C/Ku-Band",
+          "slug": "c-ku-band",
+          "count": 4,
+          "children": []
+        },
+        {
+          "id": "199",
+          "name": "Feedhorn Accessories",
+          "slug": "feed-acc",
+          "count": 4,
+          "children": []
+        },
+        {
+          "id": "111",
+          "name": "Ku-Band",
+          "slug": "ku-band",
+          "count": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "171",
+      "name": "Feedhorns",
+      "slug": "feedhorns-2",
+      "count": 3,
+      "children": []
+    },
+    {
+      "id": "27",
+      "name": "Fiber Optic",
+      "slug": "fiberoptic",
+      "count": 13,
+      "children": [
+        {
+          "id": "191",
+          "name": "Transmitters &amp; Receivers",
+          "slug": "transmitters-receivers",
+          "count": 13,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "29",
+      "name": "LNB/LNA/BUCS/Filters",
+      "slug": "filter",
+      "count": 38,
+      "children": [
+        {
+          "id": "116",
+          "name": "C-Band LNB's",
+          "slug": "c-band-lnbs",
+          "count": 8,
+          "children": []
+        },
+        {
+          "id": "120",
+          "name": "Filters",
+          "slug": "filters-filter",
+          "count": 3,
+          "children": [
+            {
+              "id": "156",
+              "name": "5G Filters",
+              "slug": "5g-filters",
+              "count": 3,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "118",
+          "name": "Ka-Band LNB's",
+          "slug": "ka-band-lnbs",
+          "count": 3,
+          "children": []
+        },
+        {
+          "id": "117",
+          "name": "Ku-Band LNB's",
+          "slug": "ku-band-lnbs",
+          "count": 24,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "34",
+      "name": "RF Distribution",
+      "slug": "rfdist",
+      "count": 1,
+      "children": []
+    },
+    {
+      "id": "37",
+      "name": "Splitters",
+      "slug": "splitters",
+      "count": 14,
+      "children": [
+        {
+          "id": "132",
+          "name": "Blonder-Tongue",
+          "slug": "blonder-tongue-splitters",
+          "count": 4,
+          "children": []
+        },
+        {
+          "id": "137",
+          "name": "Quintech",
+          "slug": "quintech",
+          "count": 8,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "38",
+      "name": "Test Equipment",
+      "slug": "testequipment",
+      "count": 28,
+      "children": [
+        {
+          "id": "140",
+          "name": "Portable Spectrum Analyzers",
+          "slug": "portable-spectrum-analyzers",
+          "count": 5,
+          "children": []
+        },
+        {
+          "id": "141",
+          "name": "Rackmount Spectrum Analyzers",
+          "slug": "rackmount-spectrum-analyzers",
+          "count": 10,
+          "children": []
+        },
+        {
+          "id": "142",
+          "name": "Remote Spectrum Analyzers",
+          "slug": "remote-spectrum-analyzers",
+          "count": 9,
+          "children": []
+        },
+        {
+          "id": "144",
+          "name": "Signal Band Frequency Converters",
+          "slug": "signal-band-frequency-converters",
+          "count": 1,
+          "children": []
+        },
+        {
+          "id": "143",
+          "name": "Signal Meters/Locators",
+          "slug": "signal-meters-locators",
+          "count": 3,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "name": "Uncategorized",
+      "slug": "uncategorized",
+      "count": 3,
+      "children": []
+    },
+    {
+      "id": "41",
+      "name": "Waveguide",
+      "slug": "wg",
+      "count": 23,
+      "children": [
+        {
+          "id": "147",
+          "name": "Custom Waveguide",
+          "slug": "custom-waveguide",
+          "count": 4,
+          "children": []
+        },
+        {
+          "id": "148",
+          "name": "E and H Bends",
+          "slug": "e-and-h-bends",
+          "count": 2,
+          "children": []
+        },
+        {
+          "id": "149",
+          "name": "Elliptical",
+          "slug": "elliptical",
+          "count": 1,
+          "children": []
+        },
+        {
+          "id": "150",
+          "name": "Flex Twist",
+          "slug": "flex-twist",
+          "count": 1,
+          "children": []
+        },
+        {
+          "id": "151",
+          "name": "Rigid",
+          "slug": "rigid",
+          "count": 1,
+          "children": []
+        },
+        {
+          "id": "152",
+          "name": "Termination",
+          "slug": "termination",
+          "count": 2,
+          "children": []
+        },
+        {
+          "id": "189",
+          "name": "Waveguide Switch",
+          "slug": "waveguide-switch-wg",
+          "count": 6,
+          "children": []
+        }
+      ]
+    }
+  ]
+}

@@ -17,13 +17,13 @@ const handleResetFilters = () => {
 </script>
 
 <template>
-  <div v-if="hasActiveFilters" class="sticky top-4 z-40 mb-4">
+  <div v-if="hasActiveFilters" class="mb-3">
     <button 
       @click="handleResetFilters"
-      class="w-full bg-white shadow-sm border border-gray-100 rounded-lg px-4 py-3 text-gray-600 hover:text-primary hover:border-primary transition-all duration-200 flex items-center justify-center gap-2"
+      class="text-sm text-primary hover:text-primary-dark font-medium underline underline-offset-2 transition-colors flex items-center gap-2"
     >
-      <Icon name="heroicons:x-mark" class="w-4 h-4" />
-      Clear All Filters
+      <Icon name="heroicons:arrow-path-20-solid" class="w-4 h-4" />
+      Clear all filters
     </button>
   </div>
 </template>

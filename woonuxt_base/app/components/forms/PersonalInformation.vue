@@ -36,6 +36,8 @@
 </template>
 
 <script setup lang="ts">
+import { authService } from '#services/woocommerce/auth.service';
+
 const { viewer, customer } = useAuth();
 const { t } = useI18n();
 
@@ -45,12 +47,34 @@ const button = ref<{ text: string; color: string }>({ text: t('messages.account.
 async function saveChanges() {
   loading.value = true;
   button.value.text = t('messages.account.updating');
+  
   const firstName = customer.value.firstName;
   const lastName = customer.value.lastName;
+  const email = customer.value.email;
+  
   try {
-    const { updateCustomer } = await GqlUpdateCustomer({ input: { id: viewer.value.id, firstName, lastName } });
-    if (updateCustomer) button.value = { text: t('messages.account.updateSuccess'), color: 'bg-green-500' };
+    const response = await authService.updateCustomerData({
+      first_name: firstName,
+      last_name: lastName,
+      email: email,
+    });
+    
+    if (response.success) {
+      button.value = { text: t('messages.account.updateSuccess'), color: 'bg-green-500' };
+      // Update local customer state
+      if (response.customer) {
+        customer.value = {
+          ...customer.value,
+          firstName: response.customer.first_name,
+          lastName: response.customer.last_name,
+          email: response.customer.email,
+        };
+      }
+    } else {
+      button.value = { text: t('messages.account.failed'), color: 'bg-red-500' };
+    }
   } catch (error) {
+    console.error('[PersonalInfo] Update failed:', error);
     button.value = { text: t('messages.account.failed'), color: 'bg-red-500' };
   }
 

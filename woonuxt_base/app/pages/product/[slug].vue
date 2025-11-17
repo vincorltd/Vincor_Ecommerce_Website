@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { StockStatusEnum, ProductTypesEnum, type AddToCartInput } from '#woo';
+import type { SelectedAddon } from '~/services/api/types';
 
 const route = useRoute();
 const { storeSettings } = useAppConfig();
@@ -8,19 +9,41 @@ const { addToCart, isUpdatingCart } = useCart();
 const { t } = useI18n();
 const slug = route.params.slug as string;
 
-// Improved data fetching strategy
+// Use Pinia product store (singular) for individual product pages
+const productStore = useProductStore();
+
+// Fetch product with automatic caching (5-minute TTL)
 const { data: productData, pending, error, refresh } = await useAsyncData(
   `product-${slug}`,
   async () => {
-    const { data } = await useAsyncGql('getProduct', { slug });
-    return data?.value?.product;
+    console.log('[Product Page] 🔄 Loading product:', slug);
+    const product = await productStore.fetchProduct(slug);
+    
+    if (!product) {
+      console.error('[Product Page] ❌ Product not found');
+      return null;
+    }
+    
+    console.log('[Product Page] ✅ Product loaded:', product.name);
+    console.log('[Product Page] 🎁 Add-ons count:', product.addons?.length || 0);
+    
+    // Debug: Log addon IDs
+    if (product.addons && product.addons.length > 0) {
+      console.log('[Product Page] 🔍 Add-ons debug:', product.addons.map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        fieldName: a.fieldName,
+        type: a.type
+      })));
+    }
+    
+    return product;
   },
   {
     server: true,
-    immediate: true,
+    lazy: true,
     transform: (result) => result || null,
     watch: [route],
-    refreshOnReconnect: true,
   }
 );
 
@@ -71,13 +94,9 @@ const mergeLiveStockStatus = (payload: Product): void => {
 onMounted(async () => {
   if (!product.value) return;
   
-  try {
-    const { product: stockProduct } = await GqlGetStockStatus({ slug });
-    if (stockProduct) mergeLiveStockStatus(stockProduct as Product);
-  } catch (error: any) {
-    const errorMessage = error?.gqlErrors?.[0].message;
-    if (errorMessage) console.error(errorMessage);
-  }
+  // Stock status already included in REST API response
+  // No need for separate stock status check like GraphQL
+  console.log('[Product Page] ⚡ Product initialized with stock status:', product.value.stockStatus);
   
   if (product.value.variations) {
     indexOfTypeAny.value.push(...checkForVariationTypeOfAny(product.value));
@@ -112,57 +131,283 @@ const stockStatus = computed(() => type.value?.stockStatus || StockStatusEnum.OU
 const disabledAddToCart = computed(() => !type.value || stockStatus.value === StockStatusEnum.ON_BACKORDER || isUpdatingCart.value);
 
 const selectedOptions = ref([]) as Ref<ProductAddonOption>;
+
+// Format price as currency string
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat('en-US', { 
+    style: 'currency', 
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+};
+
+// Get the base product price as a number
 const regularProductPrice = computed(() => {
-  const price = parseFloat(type.value?.rawRegularPrice || '0');
+  // Use rawRegularPrice (numeric) or fallback to regularPrice (may have $)
+  const rawPrice = type.value?.rawRegularPrice || type.value?.rawPrice || type.value?.regularPrice || type.value?.price || '0';
+  
+  // Remove any currency symbols and parse to float
+  const priceString = typeof rawPrice === 'string' ? rawPrice.replace(/[^0-9.-]+/g, '') : rawPrice.toString();
+  const price = parseFloat(priceString);
+  
+  console.log('[Product Page] 💰 regularProductPrice computed:', {
+    typeValue: type.value?.name,
+    rawRegularPrice: type.value?.rawRegularPrice,
+    rawPrice: type.value?.rawPrice,
+    regularPrice: type.value?.regularPrice,
+    salePrice: type.value?.salePrice,
+    price: type.value?.price,
+    selectedRaw: rawPrice,
+    priceString: priceString,
+    parsed: price,
+    typeOf: typeof rawPrice,
+  });
+  
+  if (!price || isNaN(price)) {
+    console.error('[Product Page] ❌ Invalid base price! Parsed as:', price, 'from type.value:', type.value);
+    return 0;
+  }
+  
   return Math.round(price * 100) / 100;
 });
 
-function calculateAddonTotalPrice() {
+// Get formatted base product price with currency symbol
+const formattedProductPrice = computed(() => formatPrice(regularProductPrice.value));
+
+// Calculate total price of all add-ons as computed property
+const addonsTotalPrice = computed(() => {
   let totalPrice = 0;
   for (const selectedOption of selectedOptions.value) {
-    totalPrice += selectedOption.price;
+    totalPrice += selectedOption.price || 0;
   }
-  return totalPrice;
-}
-
-function calculateTotalPrice() {
-  const addonTotalPrice = calculateAddonTotalPrice();
-  const regularPrice = regularProductPrice.value || 0;
-  const totalPrice = addonTotalPrice + regularPrice;
   return Math.round(totalPrice * 100) / 100;
+});
+
+// Helper function for backward compatibility
+function calculateAddonTotalPrice(): number {
+  return addonsTotalPrice.value;
 }
 
-function convertData(inputData: any) {
-  return inputData.reduce((accumulator, { fieldName, label, valueText }) => {
-    const entry = accumulator.get(fieldName) || { fieldName, value: valueText ? '' : [] };
-    if (valueText) {
-      entry.value = valueText;
-    } else {
-      entry.value.push(valueText ? valueText : label);
+// Calculate subtotal: base product + add-ons (computed for reactivity)
+const subtotalPrice = computed(() => {
+  const addonTotal = addonsTotalPrice.value;
+  const basePrice = regularProductPrice.value || 0;
+  const total = basePrice + addonTotal;
+  
+  console.log('[Product Page] 🧮 subtotalPrice computed:', {
+    basePrice: basePrice,
+    addonsTotal: addonTotal,
+    subtotal: total,
+  });
+  
+  return Math.round(total * 100) / 100;
+});
+
+// Helper function for backward compatibility
+function calculateTotalPrice(): number {
+  return subtotalPrice.value;
+}
+
+// Get formatted total with currency: (base + addons) * quantity
+const formattedTotal = computed(() => {
+  const subtotal = subtotalPrice.value;
+  const qty = quantity.value;
+  const total = subtotal * qty;
+  
+  console.log('[Product Page] 💵 formattedTotal computed:', {
+    basePrice: regularProductPrice.value,
+    addonsTotal: addonsTotalPrice.value,
+    subtotal: subtotal,
+    quantity: qty,
+    grandTotal: total,
+    formatted: formatPrice(total),
+  });
+  
+  return formatPrice(total);
+});
+
+// Watch for changes and log pricing details
+watch([selectedOptions, quantity], () => {
+  const basePrice = regularProductPrice.value;
+  const addonsTotal = calculateAddonTotalPrice();
+  const total = calculateTotalPrice();
+  
+  console.log('[Product Page] 💰 Price Breakdown:', {
+    basePrice: formatPrice(basePrice),
+    addonsTotal: formatPrice(addonsTotal),
+    subtotal: formatPrice(total),
+    quantity: quantity.value,
+    grandTotal: formatPrice(total * quantity.value),
+  });
+}, { deep: true });
+
+// Validate add-ons selection
+function validateAddonsSelection(addons: any[], selected: any[]): { isValid: boolean; error?: string } {
+  for (let i = 0; i < addons.length; i++) {
+    const addon = addons[i];
+    
+    // Skip if not required
+    if (!addon.required) continue;
+    
+    // Check if this addon has a selection
+    const hasSelection = selected.some((option: any) => {
+      // For array items (checkboxes), check if fieldName matches
+      if (Array.isArray(selected)) {
+        return option?.fieldName === addon.fieldName;
+      }
+      // For indexed items (radio/select), check the index
+      return selected[i] && selected[i] !== addon.name;
+    });
+    
+    if (!hasSelection) {
+      return {
+        isValid: false,
+        error: `Please select an option for "${addon.name}"`
+      };
     }
-    accumulator.set(fieldName, entry);
-    return accumulator;
-  }, new Map()).values();
+  }
+  
+  return { isValid: true };
 }
 
+// Format add-ons for Store API addons_configuration
+// Reference: https://woocommerce.com/document/product-add-ons-rest-api-reference/
+function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: string; value: string }> {
+  const formatted: Array<{ key: string; value: string }> = [];
+  const addonsArray: any[] = [];
+  
+  // Process each addon
+  addons.forEach((addon, addonIndex) => {
+    const selection = selected[addonIndex];
+    
+    if (!selection || selection === addon.name) return;
+    
+    // Find the option index for this selection
+    let optionIndex = 0; // Default to 0
+    if (addon.options && Array.isArray(addon.options)) {
+      const foundIndex = addon.options.findIndex((opt: any) => 
+        opt.label === (selection.label || selection.value || selection)
+      );
+      optionIndex = foundIndex >= 0 ? foundIndex : 0;
+    }
+    
+    console.log('[Product Page] 🔍 Formatting addon:', {
+      id: addon.id,
+      fieldName: addon.fieldName,
+      selection: selection.label || selection,
+      optionIndex,
+      optionsCount: addon.options?.length
+    });
+    
+    // Handle different addon types
+    if (addon.type.toUpperCase() === 'CHECKBOX') {
+      // For checkboxes, selection can be an array
+      const checkboxSelections = Array.isArray(selected) 
+        ? selected.filter((s: any) => s?.fieldName === addon.fieldName)
+        : [];
+      
+      checkboxSelections.forEach((item: any) => {
+        const checkboxIndex = addon.options.findIndex((opt: any) => opt.label === item.label);
+        
+        addonsArray.push({
+          addonId: addon.id || addon.fieldName || addon.name,
+          fieldName: addon.name, // Use addon name for display (e.g., "Coverage")
+          label: item.label || item.value,
+          value: item.label || item.value, // Selected value
+          price: parseFloat(item.price) || 0,
+          optionIndex: checkboxIndex >= 0 ? checkboxIndex : 0,
+        });
+      });
+    } else if (addon.type.toUpperCase().includes('MULTIPLECHOICE')) {
+      // For radio buttons and selects - include option index and addon ID
+      addonsArray.push({
+        addonId: addon.id || addon.fieldName || addon.name,
+        fieldName: addon.name, // Use addon name for display (e.g., "Coverage")
+        label: selection.label || selection.value || selection,
+        value: selection.label || selection.value || selection, // Selected value
+        price: parseFloat(selection.price) || 0,
+        optionIndex: optionIndex,
+      });
+    } else {
+      // Generic handler for other types (text inputs, etc.)
+      // For text/textarea/custom inputs, value is the text itself
+      addonsArray.push({
+        addonId: addon.id || addon.fieldName || addon.name,
+        fieldName: addon.name, // Use addon name for display (e.g., "Coverage")
+        label: selection.label || selection.value || selection,
+        value: selection.label || selection.value || selection, // Include value for text types
+        price: parseFloat(selection.price) || 0,
+        optionIndex: optionIndex,
+      });
+    }
+  });
+  
+  // Add 'addons' key with all add-ons as JSON (includes optionIndex for Store API)
+  if (addonsArray.length > 0) {
+    formatted.push({
+      key: 'addons',
+      value: JSON.stringify(addonsArray),
+    });
+  }
+  
+  return formatted;
+}
+
+// Add to cart handler with REST API add-ons formatting
+function handleAddToCart() {
+  if (!product.value) return;
+  
+  console.log('[Product Page] 🛒 Adding to cart...');
+  console.log('[Product Page] Selected options:', selectedOptions.value);
+  
+  // Validate add-ons if product has them
+  if (product.value.addons && product.value.addons.length > 0) {
+    const validation = validateAddonsSelection(
+      product.value.addons,
+      selectedOptions.value as any[]
+    );
+    
+    if (!validation.isValid) {
+      alert(validation.error || 'Please complete all required options');
+      return;
+    }
+    
+    // Format add-ons for cart as extraData
+    const extraData = formatAddonsForCart(
+      selectedOptions.value as any[],
+      product.value.addons
+    );
+    
+    console.log('[Product Page] ✅ Add-ons formatted as extraData:', extraData);
+    
+    // Add to cart with extraData
+    addToCart({
+      productId: type.value?.databaseId,
+      quantity: quantity.value,
+      extraData: extraData,
+    } as any);
+  } else {
+    // No add-ons, simple add to cart
+    addToCart({
+      productId: type.value?.databaseId,
+      quantity: quantity.value,
+    } as any);
+  }
+}
+
+// Helper function for multiple choice options (keeps UI compatibility)
 function getMultipleChoiceTypeOptions(addon: any) {
   return addon.options.map((o: any, index) => {
     return {
       ...o,
       valueText: `${o.label}-${index+1}`,
       fieldName: addon.fieldName,
-      fieldType: addon.type
+      fieldType: addon.type,
+      label: o.label,
+      price: parseFloat(o.price) || 0,
     };
   });
-}
-
-function mergeArrayValuesForCheckboxType(selectedAddons: any, allAddons: any) {
-  return allAddons.map((addon: any) => ({
-    fieldName: addon.fieldName,
-    value: (selectedAddons.find((selectedAddon: any) => 
-      selectedAddon.fieldName === addon.fieldName
-    ) || { value: '' }).value,
-  }));
 }
 
 // Update selected variations
@@ -271,195 +516,256 @@ useHead(() => ({
       <SEOHead :info="product" />
       <Breadcrumb :product class="mb-6" v-if="storeSettings.showBreadcrumbOnSingleProduct" />
 
-      <div class="flex flex-col gap-10 md:flex-row md:justify-between lg:gap-24">
-        <ProductImageGallery
-          v-if="product.image"
-          class="relative flex-1"
-          :main-image="product.image"
-          :gallery="product.galleryImages!"
-          :node="type"
-          :activeVariation="activeVariation || {}" />
-        <NuxtImg 
-          v-else 
-          class="relative flex-1 skeleton" 
-          src="/images/placeholder.jpg" 
-          :alt="product?.name || 'Product'" 
-        />
-
-        <div 
-          :key="`details-${product.databaseId}`"
-          class="lg:max-w-md xl:max-w-lg md:py-2 w-full"
-        >
-          <div class="flex justify-between">
-            <div class="flex-1">
-              <h1 class="flex flex-wrap items-center gap-2 text-2xl font-semibold">
-                {{ type.name }}
-                <WPAdminLink :link="`/wp-admin/post.php?post=${product.databaseId}&action=edit`">Edit</WPAdminLink>
-              </h1>
-            </div>
-            <ProductPrice 
-              class="text-xl" 
-              :sale-price="type.salePrice" 
-              :regular-price="type.regularPrice" 
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 lg:gap-24">
+        <!-- Left Column - Sticky Image Gallery -->
+        <div class="md:col-span-5 lg:col-span-6">
+          <div class="md:sticky md:top-6 self-start">
+            <ProductImageGallery
+              v-if="product.image"
+              :main-image="product.image"
+              :gallery="product.galleryImages!"
+              :node="type"
+              :activeVariation="activeVariation || {}" />
+            <NuxtImg 
+              v-else 
+              class="skeleton" 
+              src="/images/placeholder.jpg" 
+              :alt="product?.name || 'Product'" 
             />
           </div>
+        </div>
 
-          <div class="grid gap-2 text-sm">
-            <BrandImage class="mb-2" :product="product" />
-            <div v-if="hasNorsatTag">
-              <p class="text-base font-semibold">MSRP: {{ type.regularPrice }}</p>
-              <p class="text-base text-red-600 font-semibold">Sale Price: Call for pricing</p>
-            </div>
-            <!-- <div class="flex items-center gap-2">
-              <span class="text-gray-400">{{ $t('messages.shop.availability') }}: </span>
-              <StockStatus :stockStatus @updated="mergeLiveStockStatus" />
-            </div> -->
-            <div class="flex items-center gap-2" v-if="storeSettings.showSKU">
-              <span class="text-gray-400">{{ $t('messages.shop.sku') }}: </span>
-              <span>{{ product.sku || 'N/A' }}</span>
+        <!-- Right Column - Scrollable Product Details -->
+        <div 
+          :key="`details-${product.databaseId}`"
+          class="md:col-span-7 lg:col-span-6"
+        >
+          <!-- Product Header - Amazon Style -->
+          <div class="mb-4">
+            <h1 class="text-2xl font-normal text-gray-900 leading-snug mb-2">
+              {{ type.name }}
+            </h1>
+            <div class="flex items-center gap-4 text-sm text-gray-600 mb-3">
+              <BrandImage :product="product" />
+              <span v-if="storeSettings.showSKU">SKU: <span class="text-gray-900">{{ product.sku || 'N/A' }}</span></span>
+              <WPAdminLink :link="`/wp-admin/post.php?post=${product.databaseId}&action=edit`" class="text-primary hover:text-primary-dark hover:underline">Edit</WPAdminLink>
             </div>
           </div>
 
-          <div class="mb-8 font-light prose" v-html="product.shortDescription || product.description" />
+          <hr class="border-gray-300 mb-4" />
 
-          <hr />
+          <!-- Price Box - Amazon Style -->
+          <div class="bg-white border border-gray-300 rounded p-4 mb-4">
+            <div class="flex items-baseline gap-2 mb-2">
+              <ProductPrice 
+                class="text-3xl" 
+                :sale-price="type.salePrice" 
+                :regular-price="type.regularPrice" 
+              />
+            </div>
+            <div v-if="hasNorsatTag" class="text-sm text-gray-700 mt-2">
+              <p>MSRP: {{ type.regularPrice }}</p>
+              <p class="text-red-700 font-semibold">Call for pricing</p>
+            </div>
+          </div>
 
-          <form @submit.prevent="{
-              const addons = [...convertData(JSON.parse(JSON.stringify(selectedOptions)))];
-              const addonsWithCheckBoxType = mergeArrayValuesForCheckboxType(addons, JSON.parse(JSON.stringify(product.addons)));
-              addToCart({...selectProductInput, addons: addonsWithCheckBoxType });
-            }">
-            <div class="pt-6 flex flex-col" v-if="product.addons && product.addons.length > 0">
-              <div class="flex flex-col gap-4 pb-4" v-for="(addon, index) in product.addons" :key="index">
-                <label>{{ addon.name }}:<span class="text-base italic text-gray-700 py-2">{{ addon.required ? ' ( Selection Required )' : '' }}</span></label>
+          <!-- Product Description -->
+          <div class="mb-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-2">About this item</h2>
+            <div class="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" v-html="product.shortDescription || product.description" />
+          </div>
 
-                <div v-if="addon.type === 'MULTIPLE_CHOICE'">
+          <hr class="border-gray-300 mb-6" />
+
+          <form @submit.prevent="handleAddToCart">
+            <div class="flex flex-col gap-4" v-if="product.addons && product.addons.length > 0">
+              <!-- Configuration Section Header - Amazon Style -->
+              <div class="mb-2">
+                <h2 class="text-lg font-bold text-gray-900">Product Configuration</h2>
+                <p class="text-sm text-gray-600">Select your options below</p>
+              </div>
+              
+              <!-- Addon Sections - Simple Boxes -->
+              <div class="border border-gray-300 rounded p-4 bg-white" v-for="(addon, index) in product.addons" :key="index">
+                <label class="block text-sm font-bold text-gray-900 mb-1">
+                  {{ addon.name }}
+                  <span v-if="addon.required" class="ml-2 text-xs font-normal text-red-700">(Required)</span>
+                </label>
+                
+                <!-- Show description if enabled -->
+                <p v-if="addon.description_enable && addon.description" class="text-xs text-gray-600 mb-3">
+                  {{ addon.description }}
+                </p>
+                <div v-else class="mb-3"></div>
+
+                <!-- Multiple Choice as SELECT DROPDOWN - Clean Style -->
+                <div v-if="addon.type.toUpperCase().replace('_', '').includes('MULTIPLECHOICE') && addon.display === 'select'">
                   <select 
-                    class="select select-bordered font-semibold text-base w-full" 
+                    class="w-full px-3 py-2 text-sm bg-white border border-gray-400 rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
                     v-model="selectedOptions[index]" 
                     :selected="addon.name" 
                     :required="addon.required"
                   >
-                    <option disabled selected>{{ addon.name }}:</option>
+                    <option disabled selected :value="addon.name">Select {{ addon.name }}</option>
                     <option 
-                      class="font-semibold text-base" 
-                      v-for="(option, optionIndex) in getMultipleChoiceTypeOptions(addon)" 
-                      :key="option.label" 
+                      v-for="option in getMultipleChoiceTypeOptions(addon)" 
+                      :key="option.label"
                       :value="option"
                     >
-                      {{ option.label }} -{{ optionIndex }}
-                      <p class="text-red-500" v-if="option.price">(+${{ option.price }})</p>
+                      {{ option.label }}<span v-if="option.price"> (+{{ formatPrice(option.price) }})</span>
                     </option>
                   </select>
                 </div>
 
-                <div v-if="addon.type === 'CHECKBOX'">
-                  <div v-for="option in addon.options" :key="option.label">
-                    <input 
-                      type="checkbox" 
-                      v-model="selectedOptions" 
-                      :value="{...option, fieldName: addon.fieldName, fieldType: addon.type}" 
-                      class="mr-2" 
-                    />
-                    {{ option.label }}
-                    <p class="text-red-500" v-if="option.price">(+${{ option.price }})</p>
-                    <label class="flex items-center"> </label>
+                <!-- Multiple Choice as RADIO BUTTONS - Clean Style -->
+                <div v-if="addon.type.toUpperCase().replace('_', '').includes('MULTIPLECHOICE') && addon.display === 'radiobutton'">
+                  <div class="space-y-2">
+                    <label 
+                      v-for="option in getMultipleChoiceTypeOptions(addon)" 
+                      :key="option.label"
+                      class="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <div class="flex items-center flex-1">
+                        <input 
+                          type="radio" 
+                          :name="`addon-${addon.id || index}`"
+                          v-model="selectedOptions[index]" 
+                          :value="option"
+                          :required="addon.required"
+                          class="w-4 h-4 text-primary border-gray-400 focus:ring-primary" 
+                        />
+                        <span class="ml-2 text-sm text-gray-900">{{ option.label }}</span>
+                      </div>
+                      <span v-if="option.price" class="text-sm text-gray-900 ml-4">+{{ formatPrice(option.price) }}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Checkbox - Clean Style -->
+                <div v-if="addon.type.toUpperCase() === 'CHECKBOX'">
+                  <div class="space-y-2">
+                    <label 
+                      v-for="option in addon.options" 
+                      :key="option.label"
+                      class="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <div class="flex items-center flex-1">
+                        <input 
+                          type="checkbox" 
+                          v-model="selectedOptions" 
+                          :value="{...option, fieldName: addon.fieldName, fieldType: addon.type, value: option.label}" 
+                          class="w-4 h-4 text-primary border-gray-400 rounded focus:ring-primary" 
+                        />
+                        <span class="ml-2 text-sm text-gray-900">{{ option.label }}</span>
+                      </div>
+                      <span v-if="option.price" class="text-sm text-gray-900 ml-4">+{{ formatPrice(parseFloat(option.price) || 0) }}</span>
+                    </label>
                   </div>
                 </div>
               </div>
 
-              <div class="flex flex-col">
-                <hr />
-                <div v-if="selectedOptions.some((option) => option.price)">
-                  <div class="my-2">
-                    <h2 class="text-base font-bold">Product:</h2>
-                    <p class="font-semibold text-base text-gray-700">
-                      ({{ quantity }}) - {{ product.name }} 
-                      <span v-if="regularProductPrice && !isNaN(regularProductPrice)">
-                        - <span class="text-lg text-red-400">{{ `$` + regularProductPrice }}</span>
-                      </span>
-                    </p>
-                    <hr class="my-2" />
-                    <div class="flex flex-col gap-2 pt-4">
-                      <h2 class="text-base font-bold">Selected Options:</h2>
-                      <ul>
-                        <li 
-                          class="text-gray-700 font-semibold text-base" 
-                          v-for="(option, index) in selectedOptions" 
-                          :key="index"
-                        >
-                          {{ option.label }}
-                          <span v-if="option.price" class="text-red-400"> - ${{ option.price }}</span>
-                        </li>
-                      </ul>
+              <!-- Order Summary - Amazon Style -->
+              <div class="border border-gray-300 rounded p-4 bg-gray-50 mt-4">
+                <h3 class="text-sm font-bold text-gray-900 mb-3">Order Summary</h3>
+                
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-gray-700">Base Price:</span>
+                    <span class="font-semibold text-gray-900">{{ formattedProductPrice }}</span>
+                  </div>
+                  
+                  <!-- Show selected options if any -->
+                  <div v-if="selectedOptions.some((option) => option.price)">
+                    <div class="border-t border-gray-300 pt-2 mt-2 mb-2">
+                      <div class="font-semibold text-gray-700 mb-2">Configuration:</div>
+                      <div v-for="(option, index) in selectedOptions" :key="index" class="flex justify-between mb-1 pl-2">
+                        <span class="text-gray-600">{{ option.label }}</span>
+                        <span v-if="option.price" class="text-gray-900">+{{ formatPrice(option.price) }}</span>
+                      </div>
                     </div>
-                    <p 
-                      class="text-base font-bold text-black pt-4" 
-                      v-if="selectedOptions.some((option) => option.price)"
-                    >
-                      Total Selected Options: <span class="text-red-600">${{ calculateAddonTotalPrice() }}</span>
-                    </p>
+                    
+                    <div class="flex justify-between border-t border-gray-300 pt-2 mt-2">
+                      <span class="text-gray-700">Options Total:</span>
+                      <span class="font-semibold text-gray-900">{{ formatPrice(calculateAddonTotalPrice()) }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="flex justify-between text-sm pt-2">
+                    <span class="text-gray-700">Quantity:</span>
+                    <span class="font-semibold text-gray-900">{{ quantity }}</span>
                   </div>
                 </div>
-                <div v-if="selectedOptions.some((option) => option.price)">
-                  <hr class="my-4" />
-                  <p class="font-bold text-xl text-red-600 text-right">Total: ${{ calculateTotalPrice() * quantity }}</p>
-                  <hr class="my-4" />
+                
+                <!-- Grand Total -->
+                <div v-if="selectedOptions.some((option) => option.price)" class="border-t-2 border-gray-400 mt-3 pt-3">
+                  <div class="flex justify-between items-baseline">
+                    <span class="text-base font-bold text-gray-900">Order Total:</span>
+                    <span class="text-2xl font-bold text-red-700">{{ formattedTotal }}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <AttributeSelections
-              v-if="product.type == 'VARIABLE' && product.attributes && product.variations"
-              class="mt-4 mb-8"
-              :attributes="product.attributes.nodes"
-              :defaultAttributes="product.defaultAttributes"
-              :variations="product.variations.nodes"
-              @attrs-changed="updateSelectedVariations" 
-            />
-
-            <div class="fixed bottom-0 left-0 z-10 flex items-center w-full gap-4 p-4 mt-12 bg-white md:static md:bg-transparent bg-opacity-90 md:p-0">
-              <input
-                v-model="quantity"
-                type="number"
-                min="1"
-                aria-label="Quantity"
-                class="bg-white border rounded-lg flex text-left p-2.5 w-20 gap-4 items-center justify-center focus:outline-none" 
+            <!-- Variations Section - Amazon Style -->
+            <div v-if="product.type == 'VARIABLE' && product.attributes && product.variations" class="border border-gray-300 rounded p-4 bg-white mt-4">
+              <h3 class="text-sm font-bold text-gray-900 mb-3">Product Variations</h3>
+              <AttributeSelections
+                :attributes="product.attributes.nodes"
+                :defaultAttributes="product.defaultAttributes"
+                :variations="product.variations.nodes"
+                @attrs-changed="updateSelectedVariations" 
               />
+            </div>
+
+            <!-- Add to Cart Section - Vincor Style -->
+            <div class="fixed bottom-0 left-0 z-10 flex items-center w-full gap-3 p-4 mt-8 bg-white md:static md:bg-transparent border-t md:border-t-0 md:p-0 shadow-lg md:shadow-none">
+              <div class="flex items-center">
+                <label class="text-xs text-gray-700 mr-2 font-semibold">Qty:</label>
+                <input
+                  v-model="quantity"
+                  type="number"
+                  min="1"
+                  aria-label="Quantity"
+                  class="w-16 px-2 py-1 text-sm text-center border border-gray-400 rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" 
+                />
+              </div>
               <AddToCartButton 
-                class="flex-1 w-full md:max-w-xs" 
+                class="flex-1 md:max-w-xs px-6 py-2.5 text-sm font-bold text-white bg-gray-800 hover:bg-gray-900 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400" 
                 :disabled="disabledAddToCart" 
                 :class="{ loading: isUpdatingCart }" 
               />
             </div>
           </form>
 
-          <div v-if="storeSettings.showProductCategoriesOnSingleProduct && product.productCategories">
-            <div class="grid gap-2 my-8 text-sm">
-              <div class="flex items-center gap-2">
-                <span class="text-gray-400">{{ $t('messages.shop.category', 2) }}:</span>
-                <div class="product-categories">
+          <!-- Product Information - Clean Style -->
+          <div class="mt-8 border-t border-gray-300 pt-6">
+            <h3 class="text-base font-bold text-gray-900 mb-3">Product Information</h3>
+            
+            <div class="text-sm space-y-2">
+              <div v-if="storeSettings.showProductCategoriesOnSingleProduct && product.productCategories" class="flex items-start">
+                <span class="text-gray-600 w-32">{{ $t('messages.shop.category', 2) }}:</span>
+                <div class="flex-1 flex flex-wrap gap-1">
                   <NuxtLink
-                    v-for="category in product.productCategories.nodes"
+                    v-for="(category, idx) in product.productCategories.nodes"
                     :key="category.slug"
                     :to="`/product-category/${decodeURIComponent(category.slug)}`"
-                    class="hover:text-primary"
+                    class="text-primary hover:text-primary-dark hover:underline"
                     :title="category.name"
                   >
-                    {{ category.name }}<span class="comma">, </span>
+                    {{ category.name }}<span v-if="idx < product.productCategories.nodes.length - 1">,&nbsp;</span>
                   </NuxtLink>
                 </div>
               </div>
             </div>
-            <hr />
-          </div>
 
-          <div class="flex flex-wrap gap-4">
-            <WishlistButton :product="product" />
+            <div class="mt-4">
+              <WishlistButton :product="product" />
+            </div>
           </div>
         </div>
       </div>
 
+      <!-- Product Tabs Section -->
       <div 
         v-if="product.description || product.reviews" 
         class="my-32"
@@ -468,6 +774,7 @@ useHead(() => ({
         <ProductTabs :productSku="product.sku" :product="product" />
       </div>
 
+      <!-- Related Products Section -->
       <div 
         class="my-32" 
         v-if="product.related && storeSettings.showRelatedProducts"
@@ -484,11 +791,16 @@ useHead(() => ({
 </template>
 
 <style scoped>
-.product-categories > a:last-child .comma {
-  display: none;
-}
-
 input[type='number']::-webkit-inner-spin-button {
   opacity: 1;
+}
+
+/* Ensure prose styling doesn't break layout */
+.prose {
+  max-width: 100%;
+}
+
+.prose p {
+  margin-bottom: 0.5rem;
 }
 </style>

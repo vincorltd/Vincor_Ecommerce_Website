@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import { PropType, computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAppConfig } from '#app'
-
 const route = useRoute();
 const { storeSettings } = useAppConfig();
 const props = defineProps({

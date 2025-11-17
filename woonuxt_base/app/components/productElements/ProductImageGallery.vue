@@ -40,10 +40,10 @@ const imgWidth = 640;
 </script>
 
 <template>
-  <div>
-    <SaleBadge :node class="absolute text-base top-4 right-4" />
+  <div class="relative">
+    <SaleBadge :node class="absolute text-base top-4 right-4 z-10" />
     <NuxtImg
-      class="rounded-xl object-contain w-full min-w-[350px]"
+      class="rounded-xl object-contain w-full"
       :width="imgWidth"
       :height="imgWidth"
       :alt="imageToShow.altText || node.name"
@@ -54,7 +54,7 @@ const imgWidth = 640;
       <NuxtImg
         v-for="galleryImg in galleryImages"
         :key="galleryImg.databaseId"
-        class="cursor-pointer rounded-xl"
+        class="cursor-pointer rounded-xl hover:opacity-75 transition-opacity border-2 border-transparent hover:border-primary"
         :width="imgWidth"
         :height="imgWidth"
         :src="galleryImg.sourceUrl"

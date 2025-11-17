@@ -33,6 +33,8 @@
 </template>
 
 <script setup lang="ts">
+import { authService } from '#services/woocommerce/auth.service';
+
 const { viewer, loginUser } = useAuth();
 const { t } = useI18n();
 
@@ -50,22 +52,34 @@ const updatePassword = async () => {
 
   try {
     loading.value = true;
-    const { updateCustomer } = await GqlUpdateCustomer({ input: { id: viewer.value.id, password: password.value.new } });
-    if (updateCustomer) {
+    
+    const response = await authService.updateCustomerData({
+      password: password.value.new,
+    });
+    
+    if (response.success) {
       button.value = { text: t('messages.account.updateSuccess'), color: 'bg-green-500' };
-      const { success, error } = await loginUser({ username: viewer.value.username, password: password.value.new });
+      
+      // Re-login with new password to update session
+      const { success, error } = await loginUser({ 
+        username: viewer.value.username, 
+        password: password.value.new 
+      });
+      
       if (error) {
         errorMessage.value = error;
         button.value = { text: t('messages.account.failed'), color: 'bg-red-500' };
       }
+      
       if (success) {
         password.value = { new: '', confirm: '' };
       }
+    } else {
+      button.value = { text: t('messages.account.failed'), color: 'bg-red-500' };
     }
-  } catch (error) {
-    console.error(error);
-    const gqlError = error?.gqlErrors?.[0]?.message;
-    errorMessage.value = gqlError || 'An error occurred. Please try again.';
+  } catch (error: any) {
+    console.error('[ChangePassword] Update failed:', error);
+    errorMessage.value = error.message || 'An error occurred. Please try again.';
     button.value = { text: t('messages.account.failed'), color: 'bg-red-500' };
   }
 
