@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { OrderStatusEnum } from '#woo';
+import { ordersService } from '~/services/woocommerce/orders.service';
 
 const { query, params, name } = useRoute();
 const { customer } = useAuth();
@@ -44,22 +45,187 @@ onMounted(async () => {
 
 async function getOrder() {
   try {
-    const data = await GqlGetOrder({ id: params.orderId as string });
-    if (data.order) {
-      order.value = data.order;
+    console.log('[Order Summary] 🔍 Fetching order:', params.orderId);
+    console.log('[Order Summary] 🔑 Order key from URL:', query.key);
+    
+    // Use REST API instead of GraphQL
+    const orderId = parseInt(params.orderId as string);
+    const orderKey = query.key as string | undefined;
+    
+    const restOrder = await ordersService.getById(orderId, orderKey);
+    
+    if (restOrder) {
+      console.log('[Order Summary] ✅ Order fetched:', restOrder.id);
+      
+      // Transform REST API response to GraphQL structure
+      order.value = transformOrderToGraphQL(restOrder);
     } else {
       errorMessage.value = 'Could not find order';
     }
   } catch (err: any) {
-    errorMessage.value = err?.gqlErrors?.[0].message || 'Could not find order';
+    console.error('[Order Summary] ❌ Error fetching order:', err);
+    errorMessage.value = err?.message || err?.data?.message || 'Could not find order';
   }
   isLoaded.value = true;
+}
+
+// Transform REST API order to GraphQL structure for compatibility
+function transformOrderToGraphQL(restOrder: any): Order {
+  console.log('[Order Summary] 🔄 Transforming order:', {
+    orderId: restOrder.id,
+    total: restOrder.total,
+    lineItemsCount: restOrder.line_items?.length,
+    firstLineItem: restOrder.line_items?.[0],
+  });
+  
+  return {
+    databaseId: restOrder.id,
+    orderKey: restOrder.order_key,
+    orderNumber: restOrder.number,
+    status: restOrder.status?.toUpperCase() || 'PENDING',
+    date: restOrder.date_created,
+    paymentMethodTitle: restOrder.payment_method_title,
+    subtotal: formatPrice(parseFloat(restOrder.total) - parseFloat(restOrder.total_tax || '0')),
+    total: formatPrice(parseFloat(restOrder.total)),
+    totalTax: formatPrice(parseFloat(restOrder.total_tax || '0')),
+    shippingTotal: formatPrice(parseFloat(restOrder.shipping_total || '0')),
+    discountTotal: formatPrice(parseFloat(restOrder.discount_total || '0')),
+    rawDiscountTotal: restOrder.discount_total || '0',
+    lineItems: {
+      nodes: (restOrder.line_items || []).map((item: any) => {
+        // WooCommerce REST API returns prices as strings
+        const itemTotal = item.total || item.subtotal || '0';
+        const parsedTotal = parseFloat(itemTotal);
+        
+        // Extract add-ons from meta_data
+        const addonsMetaData = (item.meta_data || []).filter((meta: any) => {
+          // Filter out system meta keys (those starting with _)
+          return meta.key && !meta.key.startsWith('_');
+        });
+        
+        console.log('[Order Summary] 📦 Line item:', {
+          name: item.name,
+          total: item.total,
+          subtotal: item.subtotal,
+          parsedTotal,
+          formatted: formatPrice(parsedTotal),
+          metaDataCount: addonsMetaData.length,
+          metaData: addonsMetaData,
+        });
+        
+        // Convert meta_data to extraData format for compatibility with cart components
+        const extraData = addonsMetaData.length > 0 ? [{
+          key: 'addons',
+          value: JSON.stringify(addonsMetaData.map((meta: any) => {
+            // Extract price from display_value like "HALF HEAT (+$4,556.00)" or "HALF HEAT (+$4556.00)"
+            let price = 0;
+            
+            if (meta.display_value) {
+              const priceMatch = meta.display_value.match(/\(\+\$([0-9,.]+)\)/);
+              if (priceMatch) {
+                price = parseFloat(priceMatch[1].replace(/,/g, ''));
+                console.log('[Order Summary] 💰 Extracted price from display_value:', {
+                  displayValue: meta.display_value,
+                  extracted: priceMatch[1],
+                  parsed: price,
+                });
+              } else {
+                console.log('[Order Summary] ⚠️ No price in display_value:', meta.display_value);
+              }
+            }
+            
+            // Fallback: check if price is in meta.value or meta itself
+            if (!price && meta.price) {
+              price = parseFloat(meta.price);
+              console.log('[Order Summary] 💰 Using meta.price:', price);
+            }
+            
+            // Final validation
+            if (isNaN(price)) {
+              console.warn('[Order Summary] ⚠️ Price is NaN for addon:', meta);
+              price = 0;
+            }
+            
+            return {
+              fieldName: meta.display_key || meta.key,
+              value: meta.display_value || meta.value,
+              price: price,
+              label: meta.display_key || meta.key,
+            };
+          })),
+        }] : [];
+        
+        return {
+          id: item.id,
+          productId: item.product_id,
+          variationId: item.variation_id || null,
+          quantity: item.quantity,
+          total: formatPrice(parsedTotal),
+          extraData: extraData,
+          product: {
+            node: {
+              databaseId: item.product_id,
+              name: item.name,
+              slug: item.sku?.toLowerCase() || '',
+              image: {
+                sourceUrl: item.image?.src || '/images/placeholder.png',
+                altText: item.name,
+                title: item.name,
+              },
+            },
+          },
+          variation: item.variation_id ? {
+            node: {
+              databaseId: item.variation_id,
+              name: item.name,
+              image: {
+                sourceUrl: item.image?.src || '/images/placeholder.png',
+                altText: item.name,
+                title: item.name,
+              },
+            },
+          } : null,
+        };
+      }),
+    },
+    downloadableItems: {
+      nodes: [], // Would need separate endpoint for downloadable items
+    },
+  } as Order;
 }
 
 const refreshOrder = async () => {
   isLoaded.value = false;
   await getOrder();
 };
+
+// Helper function to parse add-ons from extraData JSON string
+function parseAddons(addonsJson: string): any[] {
+  try {
+    return JSON.parse(addonsJson);
+  } catch (e) {
+    console.error('[Order Summary] Failed to parse addons:', e);
+    return [];
+  }
+}
+
+// Helper to get clean addon value (removes price if it's in the value string)
+function getAddonValue(value: string): string {
+  if (!value) return '';
+  // Remove price from value if it's there (e.g., "HALF HEAT (+$4556.00)" -> "HALF HEAT")
+  return value.replace(/\s*\(\+\$[0-9,.]+\)\s*$/, '').replace(/\s*\(Included\)\s*$/, '');
+}
+
+// Helper to format addon price with validation
+function formatAddonPrice(price: number): string {
+  if (typeof price !== 'number' || isNaN(price)) {
+    return '0.00';
+  }
+  return price.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 useSeoMeta({
   title() {
@@ -103,7 +269,7 @@ useSeoMeta({
         </template>
         <hr class="my-8" />
       </div>
-      <div v-if="order && !isGuest" class="flex-1 w-full">
+      <div v-if="order" class="flex-1 w-full">
         <div class="flex items-start justify-between">
           <div class="w-[21%]">
             <div class="mb-2 text-xs text-gray-400 uppercase">{{ $t('messages.shop.order') }}</div>
@@ -126,23 +292,42 @@ useSeoMeta({
         <template v-if="order.lineItems">
           <hr class="my-8" />
 
-          <div class="grid gap-2">
-            <div v-for="item in order.lineItems.nodes" :key="item.id" class="flex items-center justify-between gap-8">
-              <NuxtLink v-if="item.product?.node" :to="`/product/${item.product.node.slug}`">
-                <NuxtImg
-                  class="w-16 h-16 rounded-xl"
-                  :src="item.variation?.node?.image?.sourceUrl || item.product.node?.image?.sourceUrl || '/images/placeholder.png'"
-                  :alt="item.variation?.node?.image?.altText || item.product.node?.image?.altText || 'Product image'"
-                  :title="item.variation?.node?.image?.title || item.product.node?.image?.title || 'Product image'"
-                  width="64"
-                  height="64"
-                  loading="lazy" />
-              </NuxtLink>
-              <div class="flex-1 leading-tight">
-                {{ item.variation ? item.variation?.node?.name : item.product?.node.name! }}
+          <div class="grid gap-4">
+            <div v-for="item in order.lineItems.nodes" :key="item.id" class="border-b pb-4 last:border-b-0">
+              <div class="flex items-center justify-between gap-8">
+                <NuxtLink v-if="item.product?.node" :to="`/product/${item.product.node.slug}`">
+                  <NuxtImg
+                    class="w-16 h-16 rounded-xl"
+                    :src="item.variation?.node?.image?.sourceUrl || item.product.node?.image?.sourceUrl || '/images/placeholder.png'"
+                    :alt="item.variation?.node?.image?.altText || item.product.node?.image?.altText || 'Product image'"
+                    :title="item.variation?.node?.image?.title || item.product.node?.image?.title || 'Product image'"
+                    width="64"
+                    height="64"
+                    loading="lazy" />
+                </NuxtLink>
+                <div class="flex-1 leading-tight">
+                  {{ item.variation ? item.variation?.node?.name : item.product?.node.name! }}
+                </div>
+                <div class="text-sm text-gray-600">Qty. {{ item.quantity }}</div>
+                <span class="text-sm font-semibold">{{ formatPrice(item.total!) }}</span>
               </div>
-              <div class="text-sm text-gray-600">Qty. {{ item.quantity }}</div>
-              <span class="text-sm font-semibold">{{ formatPrice(item.total!) }}</span>
+              
+              <!-- Add-ons Display -->
+              <div v-if="item.extraData && item.extraData.length > 0" class="mt-3 ml-20 space-y-1">
+                <template v-for="(extraItem, extraIndex) in item.extraData" :key="extraIndex">
+                  <template v-if="extraItem.key === 'addons'">
+                    <div v-for="(addon, addonIndex) in parseAddons(extraItem.value)" :key="addonIndex" class="flex justify-between text-sm text-gray-600">
+                      <span class="font-medium">{{ addon.label }}:</span>
+                      <span>
+                        {{ getAddonValue(addon.value) }}
+                        <span v-if="addon.price && !isNaN(addon.price) && addon.price > 0" class="text-green-600">
+                          (+${{ formatAddonPrice(addon.price) }})
+                        </span>
+                      </span>
+                    </div>
+                  </template>
+                </template>
+              </div>
             </div>
           </div>
         </template>

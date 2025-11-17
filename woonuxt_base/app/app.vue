@@ -51,8 +51,7 @@ html,
 body {
   @apply bg-gray-100 text-gray-900;
   scroll-behavior: smooth;
-  width: 100%;
-  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 img {

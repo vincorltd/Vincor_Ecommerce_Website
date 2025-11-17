@@ -63,6 +63,10 @@ useSeoMeta({
       <form v-else class="container flex flex-wrap items-start gap-8 my-16 justify-evenly lg:gap-20" @submit.prevent="payNow">
         <div class="grid w-full max-w-2xl gap-8 checkout-form md:flex-1">
           <!-- Customer details -->
+          <div v-if="viewer" class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 class="font-semibold text-green-800">✓ Logged in as {{ viewer.firstName || viewer.username }}</h3>
+            <p class="text-sm text-green-600">{{ viewer.email }}</p>
+          </div>
           <div v-if="!viewer && customer.billing">
             <h2 class="w-full mb-2 text-2xl font-semibold leading-none">Contact Information</h2>
             <p class="mt-1 text-sm text-gray-500">Already have an account? <a href="/my-account" class="text-primary text-semibold">Log in</a>.</p>

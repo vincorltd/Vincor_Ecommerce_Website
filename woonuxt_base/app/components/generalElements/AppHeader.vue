@@ -1,9 +1,45 @@
 <script setup lang="ts">
 const { isShowingSearch } = useSearching();
+
+// Hide header on scroll down, show on scroll up
+const isHeaderVisible = ref(true);
+let lastScrollY = 0;
+
+const handleScroll = () => {
+  if (typeof window === 'undefined') return;
+  
+  const currentScrollY = window.scrollY;
+  
+  // Show header if scrolling up or at the top
+  if (currentScrollY < lastScrollY || currentScrollY < 10) {
+    isHeaderVisible.value = true;
+  } 
+  // Hide header if scrolling down and past threshold
+  else if (currentScrollY > lastScrollY && currentScrollY > 150) {
+    isHeaderVisible.value = false;
+  }
+  
+  lastScrollY = currentScrollY;
+};
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+  }
+});
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('scroll', handleScroll);
+  }
+});
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 bg-[#192551] shadow-sm shadow-light-500">
+  <header 
+    class="sticky top-0 z-40 bg-[#192551] shadow-sm shadow-light-500 transition-transform duration-300"
+    :class="{ '-translate-y-full': !isHeaderVisible }"
+  >
     <div class="bg-primary-light py-2 px-4 shadow-md">
       <div class="container flex flex-col sm:flex-row items-center justify-center text-white space-y-2 sm:space-y-0 sm:space-x-4">
         <p class="text-center text-sm font-semibold mb-1">Call us today:</p>

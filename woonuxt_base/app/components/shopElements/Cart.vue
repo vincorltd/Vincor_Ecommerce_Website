@@ -1,32 +1,81 @@
 <script setup lang="ts">
 const { cart, toggleCart, isUpdatingCart } = useCart();
 
-const calculateCartTotal = computed(() => {
-  if (!cart.value?.contents?.nodes) return 0;
-  
-  return cart.value.contents.nodes.reduce((total, item) => {
-    const productType = item.variation ? item.variation.node : item.product.node;
-    const basePrice = parseFloat(productType?.rawRegularPrice || productType?.rawSalePrice || '0');
-    let addonTotal = 0;
-    
-    try {
-      const extraData = JSON.parse(JSON.stringify(item.extraData));
-      const addons = JSON.parse(extraData ? extraData.find(el => el.key === 'addons')?.value || '[]' : '[]');
-      addonTotal = addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
-    } catch (e) {
-      console.error('Error parsing addons:', e);
-    }
-    
-    return total + ((basePrice + addonTotal) * item.quantity);
-  }, 0);
-});
-
-const formattedTotal = computed(() => {
+// Format price utility
+const formatPrice = (price: number): string => {
   return new Intl.NumberFormat('en-US', { 
     style: 'currency', 
-    currency: 'USD' 
-  }).format(calculateCartTotal.value);
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+};
+
+// Parse addons from cart item to calculate prices
+const getItemAddons = (item: any): any[] => {
+  try {
+    if (!item.extraData || !Array.isArray(item.extraData)) return [];
+    
+    const addonsEntry = item.extraData.find((entry: any) => entry.key === 'addons');
+    if (!addonsEntry?.value) return [];
+    
+    return JSON.parse(addonsEntry.value);
+  } catch (error) {
+    console.error('[Cart] Error parsing addons:', error);
+    return [];
+  }
+};
+
+// Calculate addons total for an item
+const getItemAddonsTotal = (item: any): number => {
+  const addons = getItemAddons(item);
+  return addons.reduce((total: number, addon: any) => {
+    return total + (parseFloat(addon.price) || 0);
+  }, 0);
+};
+
+// Calculate cart total manually: sum of (base price + addons) * quantity for each item
+// NOTE: WooCommerce Store API cart.total doesn't include Product Add-ons prices
+const calculateCartTotal = computed(() => {
+  if (!cart.value?.contents?.nodes || cart.value.contents.nodes.length === 0) {
+    console.log('[Cart] 💰 No cart items');
+    return 0;
+  }
+  
+  let total = 0;
+  
+  cart.value.contents.nodes.forEach((item: any) => {
+    // Get base price
+    const productType = item.variation ? item.variation.node : item.product.node;
+    const basePrice = parseFloat(productType.rawPrice || productType.rawRegularPrice || '0');
+    
+    // Get addons total
+    const addonsTotal = getItemAddonsTotal(item);
+    
+    // Calculate line total: (base + addons) * quantity
+    const lineTotal = (basePrice + addonsTotal) * item.quantity;
+    
+    total += lineTotal;
+    
+    console.log('[Cart] 📦 Item:', {
+      name: item.product.node.name,
+      basePrice: formatPrice(basePrice),
+      addonsTotal: formatPrice(addonsTotal),
+      quantity: item.quantity,
+      lineTotal: formatPrice(lineTotal),
+    });
+  });
+  
+  console.log('[Cart] 💰 Cart Total:', {
+    calculated: formatPrice(total),
+    wcTotal: cart.value.rawTotal ? formatPrice(parseFloat(cart.value.rawTotal)) : 'N/A',
+    itemCount: cart.value.contents.nodes.length,
+  });
+  
+  return total;
 });
+
+const formattedTotal = computed(() => formatPrice(calculateCartTotal.value));
 </script>
 
 <template>

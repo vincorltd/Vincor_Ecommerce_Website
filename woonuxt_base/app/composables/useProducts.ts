@@ -3,6 +3,9 @@ let allProducts = [] as Product[];
 export function useProducts() {
   // Declare the state variables and the setter functions
   const products = useState<Product[]>('products');
+  
+  // Product cache by slug (persists across navigation)
+  const productCache = useState<Map<string, Product>>('productCache', () => new Map());
 
   /**
    * Sets the products state variable and the allProducts variable.
@@ -12,6 +15,43 @@ export function useProducts() {
     if (!Array.isArray(newProducts)) throw new Error('Products must be an array.');
     products.value = newProducts ?? [];
     allProducts = JSON.parse(JSON.stringify(newProducts));
+  }
+
+  /**
+   * Cache a single product for fast subsequent lookups
+   * @param {Product} product - The product to cache
+   */
+  function cacheProduct(product: Product): void {
+    if (product?.slug) {
+      productCache.value.set(product.slug, product);
+      console.log('[Product Cache] ✅ Cached product:', product.slug);
+    }
+  }
+
+  /**
+   * Get a cached product by slug
+   * @param {string} slug - The product slug to retrieve
+   * @returns {Product | undefined} - The cached product or undefined
+   */
+  function getCachedProduct(slug: string): Product | undefined {
+    return productCache.value.get(slug);
+  }
+
+  /**
+   * Check if a product is cached
+   * @param {string} slug - The product slug to check
+   * @returns {boolean} - True if product is in cache
+   */
+  function isProductCached(slug: string): boolean {
+    return productCache.value.has(slug);
+  }
+
+  /**
+   * Clear the product cache
+   */
+  function clearProductCache(): void {
+    productCache.value.clear();
+    console.log('[Product Cache] 🗑️ Cache cleared');
   }
 
   const updateProductList = async (): Promise<void> => {
@@ -42,5 +82,40 @@ export function useProducts() {
     }
   };
 
-  return { products, allProducts, setProducts, updateProductList };
+  /**
+   * Get a single product by slug from the stored products
+   * @param {string} slug - The product slug to find
+   * @returns {Product | null} - The found product or null
+   */
+  function getProductBySlug(slug: string): Product | null {
+    if (!slug || !allProducts.length) return null;
+    
+    const product = allProducts.find((p: Product) => p.slug === slug);
+    return product || null;
+  }
+
+  /**
+   * Get a single product by ID from the stored products
+   * @param {number} id - The product databaseId to find
+   * @returns {Product | null} - The found product or null
+   */
+  function getProductById(id: number): Product | null {
+    if (!id || !allProducts.length) return null;
+    
+    const product = allProducts.find((p: Product) => p.databaseId === id);
+    return product || null;
+  }
+
+  return { 
+    products, 
+    allProducts, 
+    setProducts, 
+    updateProductList, 
+    getProductBySlug, 
+    getProductById,
+    cacheProduct,
+    getCachedProduct,
+    isProductCached,
+    clearProductCache
+  };
 }

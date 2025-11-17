@@ -1,8 +1,4 @@
 <script setup lang="ts">
-import { PropType, computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAppConfig } from '#app'
-
 const route = useRoute();
 const { storeSettings } = useAppConfig();
 const props = defineProps({
@@ -55,8 +51,6 @@ const imgHeight = Math.round(imgWidth * 1); // Make it square 1:1 ratio
           :loading="index <= 3 ? 'eager' : 'lazy'"
           :sizes="`sm:${imgWidth / 2}px md:${imgWidth}px`"
           class="absolute inset-0 w-full h-full object-cover"
-          placeholder
-          placeholder-class="blur-xl"
         />
       </div>
       <div class="p-3">

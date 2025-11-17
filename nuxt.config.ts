@@ -29,7 +29,17 @@ export default defineNuxtConfig({
     enabled: true,
   },
 
-  modules: ['@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
+  devServer: {
+    host: 'localhost',
+    port: 3000
+  },
+
+  modules: ['@pinia/nuxt', '@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
+
+  // Configure Pinia to find stores in woonuxt_base layer
+  pinia: {
+    storesDirs: ['./woonuxt_base/app/stores'],
+  },
 
 'graphql-client': {
   clients: {

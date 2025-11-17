@@ -1,39 +1,92 @@
-<script setup>
+<script setup lang="ts">
 const { cart, isUpdatingCart } = useCart();
 
 const hasItems = computed(() => {
   return cart.value?.contents?.nodes?.length > 0;
 });
 
-const calculateSubtotal = computed(() => {
-  if (!cart.value?.contents?.nodes) return 0;
-  
-  const total = cart.value.contents.nodes.reduce((total, item) => {
-    const basePrice = parseFloat(
-      item.variation?.node?.rawRegularPrice || 
-      item.variation?.node?.rawSalePrice || 
-      item.product?.node?.rawRegularPrice || 
-      item.product?.node?.rawSalePrice || 
-      '0'
-    );
-    
-    let addonTotal = 0;
-    
-    try {
-      const extraData = JSON.parse(JSON.stringify(item.extraData));
-      const addons = JSON.parse(extraData ? extraData.find(el => el.key === 'addons')?.value || '[]' : '[]');
-      addonTotal = addons.reduce((sum, addon) => sum + (parseFloat(addon.price) || 0), 0);
-    } catch (e) {
-      console.error('Error parsing addons:', e);
-    }
-    
-    return total + ((basePrice + addonTotal) * item.quantity);
-  }, 0);
-
+// Format price utility
+const formatPrice = (price: number): string => {
   return new Intl.NumberFormat('en-US', { 
     style: 'currency', 
-    currency: 'USD' 
-  }).format(total);
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(price);
+};
+
+// Parse addons from cart item to calculate prices
+const getItemAddons = (item: any): any[] => {
+  try {
+    if (!item.extraData || !Array.isArray(item.extraData)) return [];
+    
+    const addonsEntry = item.extraData.find((entry: any) => entry.key === 'addons');
+    if (!addonsEntry?.value) return [];
+    
+    return JSON.parse(addonsEntry.value);
+  } catch (error) {
+    console.error('[OrderSummary] Error parsing addons:', error);
+    return [];
+  }
+};
+
+// Calculate addons total for an item
+const getItemAddonsTotal = (item: any): number => {
+  const addons = getItemAddons(item);
+  return addons.reduce((total: number, addon: any) => {
+    return total + (parseFloat(addon.price) || 0);
+  }, 0);
+};
+
+// Calculate cart subtotal manually: sum of (base price + addons) * quantity for each item
+// NOTE: WooCommerce Store API cart.subtotal doesn't include Product Add-ons prices
+const calculateSubtotal = computed(() => {
+  if (!cart.value?.contents?.nodes || cart.value.contents.nodes.length === 0) {
+    return '$0.00';
+  }
+  
+  let subtotal = 0;
+  
+  cart.value.contents.nodes.forEach((item: any) => {
+    // Get base price
+    const productType = item.variation ? item.variation.node : item.product.node;
+    const basePrice = parseFloat(productType.rawPrice || productType.rawRegularPrice || '0');
+    
+    // Get addons total
+    const addonsTotal = getItemAddonsTotal(item);
+    
+    // Calculate line total: (base + addons) * quantity
+    const lineTotal = (basePrice + addonsTotal) * item.quantity;
+    
+    subtotal += lineTotal;
+  });
+  
+  console.log('[OrderSummary] 💰 Subtotal calculated:', {
+    subtotal: formatPrice(subtotal),
+    wcSubtotal: cart.value.subtotal || 'N/A',
+  });
+  
+  return formatPrice(subtotal);
+});
+
+// Calculate total (subtotal - discount)
+const calculateTotal = computed(() => {
+  if (!cart.value?.contents?.nodes || cart.value.contents.nodes.length === 0) {
+    return '$0.00';
+  }
+  
+  // Get subtotal as number
+  const subtotalStr = calculateSubtotal.value.replace(/[^0-9.-]+/g, '');
+  let total = parseFloat(subtotalStr);
+  
+  // Subtract discount if any
+  if (cart.value.discountTotal) {
+    const discountStr = cart.value.discountTotal.replace(/[^0-9.-]+/g, '');
+    const discount = parseFloat(discountStr) || 0;
+    total -= discount;
+  }
+  
+  return formatPrice(total);
 });
 </script>
 
@@ -61,7 +114,7 @@ const calculateSubtotal = computed(() => {
       </Transition>
       <div class="flex justify-between mt-4">
         <span>{{ $t('messages.shop.total') }}</span>
-        <span class="text-lg font-bold text-gray-700 tabular-nums" v-html="cart.total" />
+        <span class="text-lg font-bold text-gray-700 tabular-nums">{{ calculateTotal }}</span>
       </div>
     </div>
 

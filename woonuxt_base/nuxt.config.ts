@@ -19,13 +19,38 @@ export default defineNuxtConfig({
     sharedPrerenderData: true,
   },
 
+  // Runtime configuration for WooCommerce REST API
+  runtimeConfig: {
+    // Private keys (server-side only)
+    wooConsumerKey: process.env.WOO_REST_API_CONS_KEY || '',
+    wooConsumerSecret: process.env.WOO_REST_API_CONS_SEC || '',
+    
+    // Public keys (exposed to client)
+    public: {
+      wooApiUrl: process.env.WOO_API_URL || 'https://satchart.com/wp-json',
+      wooStoreApiUrl: process.env.WOO_STORE_API_URL || 'https://satchart.com/wp-json/wc/store/v1',
+      wooRestApiUrl: process.env.WOO_REST_API_URL || 'https://satchart.com/wp-json/wc/v3',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://vincor.com',
+    },
+  },
+
   plugins: [resolve('./app/plugins/init.ts')],
 
   components: [{ path: resolve('./app/components'), pathPrefix: false }],
 
-  modules: ['woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', 
+  devServer: {
+    host: 'localhost',
+    port: 3000
+  },
+
+  modules: ['@pinia/nuxt', 'woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', 
     
     '@nuxt/image', '@nuxtjs/i18n', '@nuxtjs/sitemap'],
+
+  // Configure Pinia stores directory
+  pinia: {
+    storesDirs: ['./app/stores'],
+  },
 
   'graphql-client': {
     clients: {
@@ -88,6 +113,7 @@ export default defineNuxtConfig({
   alias: {
     '#constants': resolve('./app/constants'),
     '#woo': '../.nuxt/gql/default',
+    '#services': resolve('./app/services'),
   },
 
   hooks: {
@@ -124,7 +150,7 @@ export default defineNuxtConfig({
       { code: 'it_IT', file: 'it-IT.json', name: 'Italiano 🇮🇹' },
       { code: 'pt_BR', file: 'pt-BR.json', name: 'Português 🇧🇷' },
     ],
-    langDir: 'locales',
+    langDir: resolve('./app/locales'),
     defaultLocale: 'en_US',
     strategy: 'no_prefix',
   },

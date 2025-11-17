@@ -1,9 +1,59 @@
-import { GqlLogin, GqlLogout, GqlRegisterCustomer, GqlResetPasswordEmail, GqlGetOrders } from '#gql';
-import type { RegisterCustomerInput, CreateAccountInput } from '#gql';
+/**
+ * Authentication Composable - REST API Version
+ * 
+ * Handles all authentication operations using WooCommerce REST API
+ */
+
+import { authService } from '#services/woocommerce/auth.service';
+import type { AuthUser } from '#services/woocommerce/auth.service';
+
+interface Customer {
+  id?: number;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  billing?: any;
+  shipping?: any;
+  [key: string]: any;
+}
+
+interface Viewer extends AuthUser {
+  [key: string]: any;
+}
+
+interface Order {
+  id?: number;
+  orderNumber?: string;
+  number?: string;
+  date?: string;
+  date_created?: string;
+  status?: string;
+  total?: string;
+  [key: string]: any;
+}
+
+interface DownloadableItem {
+  [key: string]: any;
+}
+
+interface CreateAccountInput {
+  username: string;
+  password: string;
+  email?: string;
+}
+
+interface RegisterCustomerInput {
+  email: string;
+  username: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+}
 
 export const useAuth = () => {
   const { refreshCart } = useCart();
-  const { logGQLError, clearAllCookies } = useHelpers();
+  const { clearAllCookies } = useHelpers();
   const router = useRouter();
 
   const customer = useState<Customer>('customer', () => ({ billing: {}, shipping: {} }));
@@ -12,112 +62,274 @@ export const useAuth = () => {
   const orders = useState<Order[] | null>('orders', () => null);
   const downloads = useState<DownloadableItem[] | null>('downloads', () => null);
 
-  // Log in the user
+  // Transform WooCommerce order to app format
+  const transformOrder = (wooOrder: any): Order => {
+    return {
+      id: wooOrder.id,
+      orderNumber: wooOrder.number?.toString() || wooOrder.id?.toString(),
+      number: wooOrder.number?.toString() || wooOrder.id?.toString(),
+      date: wooOrder.date_created || wooOrder.date,
+      date_created: wooOrder.date_created,
+      status: wooOrder.status,
+      total: wooOrder.total,
+      currency: wooOrder.currency,
+      lineItems: wooOrder.line_items,
+      billing: wooOrder.billing,
+      shipping: wooOrder.shipping,
+      paymentMethod: wooOrder.payment_method_title,
+      ...wooOrder,
+    };
+  };
+
+  // Transform auth user to viewer format
+  const transformUserToViewer = (user: AuthUser): Viewer => {
+    return {
+      ...user,
+      databaseId: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar ? { url: user.avatar } : null,
+    };
+  };
+
+  // Transform WooCommerce address format to app format
+  const transformAddress = (address: any) => {
+    if (!address) return {};
+    
+    return {
+      firstName: address.first_name || '',
+      lastName: address.last_name || '',
+      company: address.company || '',
+      address1: address.address_1 || '',
+      address2: address.address_2 || '',
+      city: address.city || '',
+      state: address.state || '',
+      postcode: address.postcode || '',
+      country: address.country || '',
+      email: address.email || '',
+      phone: address.phone || '',
+    };
+  };
+
+  // Transform WooCommerce customer
+  const transformCustomer = (wooCustomer: any): Customer => {
+    if (!wooCustomer) return { billing: {}, shipping: {} };
+
+    return {
+      id: wooCustomer.id,
+      email: wooCustomer.email,
+      firstName: wooCustomer.first_name,
+      lastName: wooCustomer.last_name,
+      username: wooCustomer.username,
+      billing: transformAddress(wooCustomer.billing),
+      shipping: transformAddress(wooCustomer.shipping),
+      ...wooCustomer,
+    };
+  };
+
+  /**
+   * Log in the user
+   */
   const loginUser = async (credentials: CreateAccountInput): Promise<{ success: boolean; error: any }> => {
     isPending.value = true;
 
     try {
-      const { loginWithCookies } = await GqlLogin(credentials);
+      console.log('[useAuth] 🔐 Attempting login');
+      
+      const response = await authService.login({
+        username: credentials.username,
+        password: credentials.password,
+      });
 
-      if (loginWithCookies?.status === 'SUCCESS') {
-        await refreshCart();
-        if (viewer === null) {
-          return {
-            success: false,
-            error:
-              'Your credentials are correct, but there was an error logging in. This is most likely due to an SSL error. Please try again later. If the problem persists, please contact support.',
-          };
-        }
+      if (!response.success) {
+        isPending.value = false;
+        return {
+          success: false,
+          error: response.error || 'Login failed',
+        };
       }
+
+      // Set viewer and customer state
+      if (response.user) {
+        viewer.value = transformUserToViewer(response.user);
+      }
+      
+      if (response.customer) {
+        customer.value = transformCustomer(response.customer);
+      }
+
+      // Refresh cart to associate with logged-in user
+      await refreshCart();
+
+      isPending.value = false;
+
+      console.log('[useAuth] ✅ Login successful');
+
+      // Redirect to my account
+      setTimeout(() => {
+        router.push('/my-account');
+      }, 500);
 
       return {
         success: true,
         error: null,
       };
     } catch (error: any) {
-      logGQLError(error);
+      console.error('[useAuth] ❌ Login error:', error);
+      isPending.value = false;
 
       return {
         success: false,
-        error: error?.gqlErrors?.[0]?.message,
+        error: error.message || 'An error occurred during login',
       };
-    } finally {
-      isPending.value = false;
     }
   };
 
-  // Log out the user
+  /**
+   * Log out the user
+   */
   const logoutUser = async (): Promise<{ success: boolean; error: any }> => {
     isPending.value = true;
+
     try {
-      const { logout } = await GqlLogout();
-      if (logout) {
-        await refreshCart();
-        clearAllCookies();
-        customer.value = { billing: {}, shipping: {} };
-      }
-      return { success: true, error: null };
+      console.log('[useAuth] 🚪 Logging out');
+      
+      const response = await authService.logout();
+
+      // Clear state
+      viewer.value = null;
+      customer.value = { billing: {}, shipping: {} };
+      orders.value = null;
+      downloads.value = null;
+
+      // Clear cookies
+      clearAllCookies();
+
+      // Refresh cart (will create new guest cart)
+      await refreshCart();
+
+      isPending.value = false;
+
+      console.log('[useAuth] ✅ Logout successful');
+
+      // Redirect to home
+      router.push('/');
+
+      return { 
+        success: true, 
+        error: null 
+      };
     } catch (error: any) {
-      logGQLError(error);
-      return { success: false, error };
-    } finally {
-      updateViewer(null);
-      if (router.currentRoute.value.path === '/my-account' && viewer.value === null) {
-        router.push('/my-account');
-      } else {
-        router.push('/');
-      }
+      console.error('[useAuth] ❌ Logout error:', error);
+      isPending.value = false;
+
+      return { 
+        success: false, 
+        error: error.message || 'Logout failed' 
+      };
     }
   };
 
-  // Register the user
+  /**
+   * Register the user
+   */
   const registerUser = async (userInfo: RegisterCustomerInput): Promise<{ success: boolean; error: any }> => {
     isPending.value = true;
+
     try {
-      await GqlRegisterCustomer({ input: userInfo });
-      return { success: true, error: null };
-    } catch (error: any) {
-      logGQLError(error);
-      const gqlError = error?.gqlErrors?.[0];
+      console.log('[useAuth] 📝 Registering user');
+      
+      const response = await authService.register({
+        email: userInfo.email,
+        username: userInfo.username,
+        password: userInfo.password,
+        firstName: userInfo.firstName,
+        lastName: userInfo.lastName,
+      });
+
       isPending.value = false;
-      return { success: false, error: gqlError?.message };
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Registration failed',
+        };
+      }
+
+      console.log('[useAuth] ✅ Registration successful');
+
+      return { 
+        success: true, 
+        error: null 
+      };
+    } catch (error: any) {
+      console.error('[useAuth] ❌ Registration error:', error);
+      isPending.value = false;
+
+      return {
+        success: false,
+        error: error.message || 'Registration failed',
+      };
     }
   };
 
-  // Update the user state
+  /**
+   * Update the customer state
+   */
   const updateCustomer = (payload: Customer): void => {
-    const sessionToken = payload?.sessionToken;
-    if (sessionToken) {
-      useGqlHeaders({ 'woocommerce-session': `Session ${sessionToken}` });
-      const newToken = useCookie('woocommerce-session');
-      newToken.value = sessionToken;
-    }
     customer.value = payload;
     isPending.value = false;
   };
 
+  /**
+   * Update the viewer state
+   */
   const updateViewer = (payload: Viewer | null): void => {
     viewer.value = payload;
     isPending.value = false;
   };
 
+  /**
+   * Send password reset email
+   */
   const sendResetPasswordEmail = async (email: string): Promise<{ success: boolean; error: any }> => {
     try {
       isPending.value = true;
-      const { sendPasswordResetEmail } = await GqlResetPasswordEmail({ username: email });
-      if (sendPasswordResetEmail?.success) {
-        isPending.value = false;
-        return { success: true, error: null };
-      }
-      return { success: false, error: 'There was an error sending the reset password email. Please try again later.' };
-    } catch (error: any) {
-      logGQLError(error);
+      
+      console.log('[useAuth] 🔑 Sending password reset email');
+      
+      const response = await authService.sendPasswordResetEmail(email);
+
       isPending.value = false;
-      const gqlError = error?.gqlErrors?.[0];
-      return { success: false, error: gqlError?.message };
+
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error || 'Failed to send reset email',
+        };
+      }
+
+      console.log('[useAuth] ✅ Reset email sent');
+
+      return { 
+        success: true, 
+        error: null 
+      };
+    } catch (error: any) {
+      console.error('[useAuth] ❌ Reset email error:', error);
+      isPending.value = false;
+
+      return {
+        success: false,
+        error: error.message || 'Failed to send reset email',
+      };
     }
   };
 
+  /**
+   * Reset password with key (not implemented yet)
+   */
   const resetPasswordWithKey = async ({
     key,
     login,
@@ -127,54 +339,112 @@ export const useAuth = () => {
     login: string;
     password: string;
   }): Promise<{ success: boolean; error: any }> => {
-    try {
-      isPending.value = true;
-      const { resetUserPassword } = await GqlResetPasswordKey({ key, login, password });
-      const wasPasswordReset = Boolean(resetUserPassword?.user?.id);
-      if (wasPasswordReset) {
-        isPending.value = false;
-        return { success: true, error: null };
-      }
-      return { success: false, error: 'There was an error resetting the password. Please try again later.' };
-    } catch (error: any) {
-      isPending.value = false;
-      const gqlError = error?.gqlErrors?.[0];
-      return { success: false, error: gqlError?.message };
-    }
+    // This would require a custom WordPress endpoint
+    // For now, return not implemented
+    console.warn('[useAuth] ⚠️ resetPasswordWithKey not implemented');
+    
+    return {
+      success: false,
+      error: 'Password reset with key is not implemented yet. Please use the email link.',
+    };
   };
 
+  /**
+   * Get customer orders
+   */
   const getOrders = async (): Promise<{ success: boolean; error: any }> => {
     try {
-      const { customer } = await GqlGetOrders();
-      if (customer) {
-        orders.value = customer.orders?.nodes ?? [];
-        return { success: true, error: null };
+      console.log('[useAuth] 📦 Fetching orders');
+      
+      const response = await authService.getOrders();
+
+      if (response.success && response.orders) {
+        // Transform orders to app format
+        orders.value = response.orders.map(transformOrder);
+        
+        console.log('[useAuth] ✅ Retrieved', orders.value.length, 'orders');
+        
+        return { 
+          success: true, 
+          error: null 
+        };
       }
-      return { success: false, error: 'There was an error getting your orders. Please try again later.' };
+
+      return {
+        success: false,
+        error: 'Failed to retrieve orders',
+      };
     } catch (error: any) {
-      logGQLError(error);
-      const gqlError = error?.gqlErrors?.[0];
-      return { success: false, error: gqlError?.message };
+      console.error('[useAuth] ❌ Get orders error:', error);
+
+      return {
+        success: false,
+        error: error.message || 'Failed to retrieve orders',
+      };
     }
   };
 
+  /**
+   * Get downloadable items (not implemented yet)
+   */
   const getDownloads = async (): Promise<{ success: boolean; error: any }> => {
+    // This would require querying customer downloadable products
+    // Not commonly used, so leaving as placeholder
+    console.warn('[useAuth] ⚠️ getDownloads not implemented');
+    
+    downloads.value = [];
+    
+    return {
+      success: true,
+      error: null,
+    };
+  };
+
+  /**
+   * Initialize user session (check if logged in)
+   */
+  const initSession = async (): Promise<void> => {
     try {
-      const { customer } = await GqlGetDownloads();
-      if (customer) {
-        downloads.value = customer.downloadableItems?.nodes ?? [];
-        return { success: true, error: null };
+      console.log('[useAuth] 🔄 Initializing session');
+      
+      const response = await authService.getCurrentUser();
+
+      if (response.success && response.user) {
+        viewer.value = transformUserToViewer(response.user);
+        
+        if (response.customer) {
+          customer.value = transformCustomer(response.customer);
+        }
+        
+        console.log('[useAuth] ✅ Session initialized for user:', response.user.id);
+      } else {
+        console.log('[useAuth] ℹ️ No active session');
+        viewer.value = null;
+        customer.value = { billing: {}, shipping: {} };
       }
-      return { success: false, error: 'There was an error getting your downloads. Please try again later.' };
-    } catch (error: any) {
-      logGQLError(error);
-      const gqlError = error?.gqlErrors?.[0];
-      return { success: false, error: gqlError?.message };
+    } catch (error) {
+      console.log('[useAuth] ℹ️ Not authenticated');
+      viewer.value = null;
+      customer.value = { billing: {}, shipping: {} };
     }
   };
 
-  const avatar = computed(() => viewer.value?.avatar?.url ?? null);
-  const wishlistLink = computed<string>(() => (viewer.value ? '/my-account?tab=wishlist' : '/wishlist'));
+  // Computed properties
+  const avatar = computed(() => {
+    if (viewer.value?.avatar) {
+      if (typeof viewer.value.avatar === 'string') {
+        return viewer.value.avatar;
+      }
+      if (viewer.value.avatar.url) {
+        return viewer.value.avatar.url;
+      }
+    }
+    return null;
+  });
+
+  const wishlistLink = computed<string>(() => 
+    viewer.value ? '/my-account?tab=wishlist' : '/wishlist'
+  );
 
   return {
     viewer,
@@ -193,5 +463,6 @@ export const useAuth = () => {
     resetPasswordWithKey,
     getOrders,
     getDownloads,
+    initSession,
   };
 };

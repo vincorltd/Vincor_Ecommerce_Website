@@ -1,0 +1,217 @@
+{
+  "success": true,
+  "count": 30,
+  "lastUpdated": "2025-11-14T18:23:04.461Z",
+  "brands": [
+    {
+      "id": 331,
+      "name": "adl",
+      "slug": "adl",
+      "displayName": "ADL",
+      "count": 3
+    },
+    {
+      "id": 314,
+      "name": "ai",
+      "slug": "ai",
+      "displayName": "AI",
+      "count": 2
+    },
+    {
+      "id": 337,
+      "name": "andrew",
+      "slug": "andrew",
+      "displayName": "Andrew",
+      "count": 9
+    },
+    {
+      "id": 325,
+      "name": "ast",
+      "slug": "ast",
+      "displayName": "AST",
+      "count": 6
+    },
+    {
+      "id": 334,
+      "name": "atci",
+      "slug": "atci",
+      "displayName": "ATCI",
+      "count": 2
+    },
+    {
+      "id": 322,
+      "name": "avcom",
+      "slug": "avcom",
+      "displayName": "Avcom",
+      "count": 24
+    },
+    {
+      "id": 350,
+      "name": "belden",
+      "slug": "belden",
+      "displayName": "Belden",
+      "count": 1
+    },
+    {
+      "id": 348,
+      "name": "blondertongue",
+      "slug": "blondertongue",
+      "displayName": "Blonder Tongue",
+      "count": 6
+    },
+    {
+      "id": 349,
+      "name": "clearsat",
+      "slug": "clearsat",
+      "displayName": "ClearSat",
+      "count": 3
+    },
+    {
+      "id": 341,
+      "name": "commscope",
+      "slug": "commscope",
+      "displayName": "CommScope",
+      "count": 2
+    },
+    {
+      "id": 330,
+      "name": "comtech",
+      "slug": "comtech",
+      "displayName": "Comtech",
+      "count": 1
+    },
+    {
+      "id": 343,
+      "name": "cytonix",
+      "slug": "cytonix",
+      "displayName": "cytonix",
+      "count": 1
+    },
+    {
+      "id": 321,
+      "name": "dh",
+      "slug": "dh",
+      "displayName": "DH",
+      "count": 25
+    },
+    {
+      "id": 323,
+      "name": "eti",
+      "slug": "eti",
+      "displayName": "ETI",
+      "count": 20
+    },
+    {
+      "id": 324,
+      "name": "kratos",
+      "slug": "kratos",
+      "displayName": "Kratos",
+      "count": 8
+    },
+    {
+      "id": 359,
+      "name": "LNB",
+      "slug": "lnb",
+      "displayName": "LNB",
+      "count": 1
+    },
+    {
+      "id": 315,
+      "name": "norsat",
+      "slug": "norsat",
+      "displayName": "Norsat",
+      "count": 40
+    },
+    {
+      "id": 358,
+      "name": "PLL",
+      "slug": "pll",
+      "displayName": "PLL",
+      "count": 1
+    },
+    {
+      "id": 326,
+      "name": "polyphaser",
+      "slug": "polyphaser",
+      "displayName": "PolyPhaser",
+      "count": 5
+    },
+    {
+      "id": 327,
+      "name": "prodelin",
+      "slug": "prodelin",
+      "displayName": "Prodelin",
+      "count": 3
+    },
+    {
+      "id": 328,
+      "name": "quintech",
+      "slug": "quintech",
+      "displayName": "Quintech",
+      "count": 14
+    },
+    {
+      "id": 346,
+      "name": "rci",
+      "slug": "rci",
+      "displayName": "RCI",
+      "count": 3
+    },
+    {
+      "id": 363,
+      "name": "rti",
+      "slug": "rti",
+      "displayName": "rti",
+      "count": 1
+    },
+    {
+      "id": 340,
+      "name": "seavey",
+      "slug": "seavey",
+      "displayName": "Seavey",
+      "count": 7
+    },
+    {
+      "id": 345,
+      "name": "thompson",
+      "slug": "thompson",
+      "displayName": "Thompson",
+      "count": 1
+    },
+    {
+      "id": 339,
+      "name": "thor",
+      "slug": "thor",
+      "displayName": "Thor",
+      "count": 13
+    },
+    {
+      "id": 329,
+      "name": "times",
+      "slug": "times",
+      "displayName": "Times",
+      "count": 12
+    },
+    {
+      "id": 338,
+      "name": "venture",
+      "slug": "venture",
+      "displayName": "Venture",
+      "count": 5
+    },
+    {
+      "id": 336,
+      "name": "vincor",
+      "slug": "vincor",
+      "displayName": "Vincor",
+      "count": 13
+    },
+    {
+      "id": 344,
+      "name": "walton",
+      "slug": "walton",
+      "displayName": "Walton",
+      "count": 1
+    }
+  ]
+}

@@ -1,12 +1,31 @@
 <script setup lang="ts">
 const { setProducts, updateProductList } = useProducts();
+const { isFiltersActive } = useFiltering();
 const route = useRoute();
 const { storeSettings } = useAppConfig();
 const { isQueryEmpty } = useHelpers();
 
-const { data } = await useAsyncGql('getProducts');
-const allProducts = (data.value?.products?.nodes || []) as Product[];
-setProducts(allProducts);
+// Use Pinia products store (plural) for listing page
+const productsStore = useProductsStore();
+
+// Fetch products from API (with caching)
+const { data: allProducts, pending, error } = await useAsyncData(
+  'all-products',
+  async () => {
+    console.log('[Products Page] 🔄 Loading products...');
+    const products = await productsStore.fetchAll();
+    return products;
+  },
+  {
+    server: true,
+    lazy: false,
+  }
+);
+
+// Set products in the old composable (for backwards compatibility)
+if (allProducts.value) {
+  setProducts(allProducts.value);
+}
 
 onMounted(() => {
   if (!isQueryEmpty.value) updateProductList();
@@ -27,12 +46,26 @@ useHead({
 </script>
 
 <template>
-  <div class="min-h-screen w-full" v-if="allProducts.length">
+  <!-- Loading state -->
+  <div v-if="pending" class="min-h-screen w-full flex items-center justify-center">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+      <p class="text-gray-600">Loading products...</p>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <NoProductsFound v-else-if="error">
+    Error loading products: {{ error.message }}
+  </NoProductsFound>
+
+  <!-- Products loaded -->
+  <div class="min-h-screen w-full" v-else-if="allProducts && allProducts.length">
     <div class="container mx-auto px-4 lg:px-8">
-      <div class="flex flex-col lg:flex-row gap-8">
-        <!-- Desktop Filters -->
-        <div class="hidden lg:block w-[280px] flex-shrink-0">
-          <Filters v-if="storeSettings.showFilters" :hide-categories="false" />
+      <div class="flex flex-col lg:flex-row lg:items-start gap-8">
+        <!-- Filters (handles both desktop and mobile internally) -->
+        <div v-if="storeSettings.showFilters" class="lg:sticky lg:top-4 lg:self-start">
+          <Filters :hide-categories="false" />
         </div>
         
         <!-- Main content -->
@@ -48,14 +81,10 @@ useHead({
         </div>
       </div>
     </div>
-
-    <!-- Mobile Filters - Fixed position when active -->
-    <Filters 
-      v-if="storeSettings.showFilters" 
-      :hide-categories="false" 
-      class="lg:hidden fixed inset-0 z-50 transform transition-transform duration-300"
-      :class="{ '-translate-x-full': !isFiltersActive, 'translate-x-0': isFiltersActive }"
-    />
   </div>
-  <NoProductsFound v-else>Could not fetch products from your store. Please check your configuration.</NoProductsFound>
+
+  <!-- No products -->
+  <NoProductsFound v-else>
+    No products found. Please check your configuration or try again later.
+  </NoProductsFound>
 </template>

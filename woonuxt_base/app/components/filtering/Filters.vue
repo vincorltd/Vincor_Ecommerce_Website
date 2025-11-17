@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { TaxonomyEnum } from '#woo';
 
-const { isFiltersActive, clearAllFilters } = useFiltering();
+const { isFiltersActive } = useFiltering();
 const { removeBodyClass } = useHelpers();
 const runtimeConfig = useRuntimeConfig();
 const { storeSettings } = useAppConfig();
@@ -10,10 +10,9 @@ const { hideCategories } = defineProps({ hideCategories: { type: Boolean, defaul
 
 const globalProductAttributes = (runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES as WooNuxtFilter[]) || [];
 const taxonomies = globalProductAttributes.map((attr) => attr?.slug?.toUpperCase().replace('_', '')) as TaxonomyEnum[];
-const { data } = await useAsyncGql('getAllTerms', { taxonomies: [...taxonomies, TaxonomyEnum.PRODUCTCATEGORY] });
+const { data } = await useAsyncGql('getAllTerms', { taxonomies });
 const terms = data.value?.terms?.nodes || [];
 
-const productCategoryTerms = terms.filter((term) => term.taxonomyName === 'product_cat');
 const attributesWithTerms = globalProductAttributes.map((attr) => ({ 
   ...attr, 
   terms: terms.filter((term) => term.taxonomyName === attr.slug) 
@@ -27,11 +26,11 @@ const closeFilterMenu = () => {
 
 onMounted(() => {
   const filters = document.getElementById('filters');
-  let scrollTimeout;
+  let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
   filters?.addEventListener('scroll', () => {
     filters.classList.add('scrolling');
-    clearTimeout(scrollTimeout);
+    if (scrollTimeout) clearTimeout(scrollTimeout);
     
     scrollTimeout = setTimeout(() => {
       filters.classList.remove('scrolling');
@@ -42,18 +41,27 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col">
-    <SelectedFilters class="hidden lg:block" />
-    <aside id="filters" class="rounded-lg shadow-sm p-4 transition-all duration-300">
-      <SelectedFilters class="lg:hidden mb-6" />
-      <div class="space-y-6 transition-all duration-300">
-        <OrderByDropdown class="block w-full lg:hidden mb-6" />
-        <div class="relative space-y-6">
-          <CategoryFilter 
-            v-if="!hideCategories" 
-            :terms="productCategoryTerms" 
-            @filter-selected="closeFilterMenu" />
-          <BrandFilter @filter-selected="closeFilterMenu" />
-        </div>
+    <aside id="filters" class="transition-all duration-300">
+      <!-- Mobile header -->
+      <div class="lg:hidden p-4 border-b border-gray-200 flex items-center justify-between bg-white/95 backdrop-blur-sm">
+        <h2 class="text-lg font-bold text-gray-900">Filters</h2>
+        <button @click="removeBodyClass('show-filters')" class="p-2 hover:bg-gray-100 rounded-lg">
+          <Icon name="heroicons:x-mark" class="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+      
+      <!-- Clear filters - inside the filter bar -->
+      <div class="px-4 pt-4">
+        <SelectedFilters />
+      </div>
+      
+      <OrderByDropdown class="block w-full lg:hidden px-4 pb-4" />
+      
+      <div class="space-y-2">
+        <CategoryFilterNew 
+          v-if="!hideCategories"
+          @filter-selected="closeFilterMenu" />
+        <BrandFilter @filter-selected="closeFilterMenu" />
       </div>
     </aside>
   </div>
@@ -69,38 +77,26 @@ onMounted(() => {
 }
 
 #filters {
-  @apply w-[280px] border border-gray-100;
-  max-height: calc(100vh - 200px);
+  @apply w-[280px];
+  border-right: 1px solid #e5e7eb; /* Only right border */
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
+  padding-right: 8px;
 
   &::-webkit-scrollbar {
     width: 4px;
-    opacity: 0;
   }
 
-  &:hover::-webkit-scrollbar {
-    opacity: 0;
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
-    @apply bg-gray-200;
-    border-radius: 4px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    @apply bg-gray-300 rounded-full;
   }
 
-  &:hover::-webkit-scrollbar-thumb {
-    opacity: 0;
-  }
-
-  &:hover::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-300;
-  }
-
-  /* Only show scrollbar when actively scrolling */
-  &:active::-webkit-scrollbar-thumb,
-  &.scrolling::-webkit-scrollbar-thumb {
-    opacity: 1;
+  &::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
   }
 
   input[type='checkbox'],
@@ -187,11 +183,14 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   #filters {
-    @apply fixed inset-y-0 left-0 w-[280px] bg-white z-[60] transform -translate-x-full transition-transform duration-300 ease-in-out;
+    @apply fixed inset-y-0 left-0 w-[280px] z-[60] transform -translate-x-full transition-transform duration-300 ease-in-out;
     height: 100vh;
     max-height: none;
     overflow-y: auto;
     box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    border-right: none; /* No border on mobile */
   }
 
   .show-filters #filters {
