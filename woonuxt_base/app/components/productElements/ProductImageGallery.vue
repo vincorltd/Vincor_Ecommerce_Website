@@ -41,7 +41,6 @@ const imgWidth = 640;
 
 <template>
   <div class="relative">
-    <SaleBadge :node class="absolute text-base top-4 right-4 z-10" />
     <NuxtImg
       class="rounded-xl object-contain w-full"
       :width="imgWidth"

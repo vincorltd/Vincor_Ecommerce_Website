@@ -34,7 +34,11 @@ const getItemAddons = (item: any): any[] => {
 const getItemAddonsTotal = (item: any): number => {
   const addons = getItemAddons(item);
   return addons.reduce((total: number, addon: any) => {
-    return total + (parseFloat(addon.price) || 0);
+    // Ensure price is a number, not a string (prevents string concatenation)
+    const price = typeof addon.price === 'string' 
+      ? parseFloat(addon.price.replace(/[^0-9.-]+/g, '')) || 0
+      : parseFloat(addon.price) || 0;
+    return total + price;
   }, 0);
 };
 

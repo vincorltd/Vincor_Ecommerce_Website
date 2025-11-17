@@ -62,12 +62,34 @@ export const useCartAddonsStore = defineStore('cart-addons', {
     },
     
     /**
+     * Normalize addon price to ensure it's a number
+     */
+    normalizeAddonPrice(price: any): number {
+      if (typeof price === 'number' && !isNaN(price)) {
+        return price;
+      }
+      if (typeof price === 'string') {
+        const cleaned = price.replace(/[^0-9.-]+/g, '');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    },
+    
+    /**
      * Store add-ons for a cart item
      * Called after successfully adding item to cart
+     * Normalizes all prices to numbers to prevent string concatenation
      */
     setItemAddons(itemKey: string, addons: any[]) {
-      console.log('[Cart Addons Store] 💾 Storing add-ons for item:', itemKey, addons);
-      this.itemAddons[itemKey] = addons;
+      // Normalize all prices to numbers
+      const normalizedAddons = addons.map(addon => ({
+        ...addon,
+        price: this.normalizeAddonPrice(addon.price),
+      }));
+      
+      console.log('[Cart Addons Store] 💾 Storing add-ons for item:', itemKey, normalizedAddons);
+      this.itemAddons[itemKey] = normalizedAddons;
       this.persist();
     },
     

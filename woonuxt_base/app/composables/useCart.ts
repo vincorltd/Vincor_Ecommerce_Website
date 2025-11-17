@@ -59,32 +59,43 @@ export function useCart() {
         nodesLength: transformedCart.contents?.nodes?.length,
       });
       
-      // Inject add-ons from client-side store (has prices) and merge with item_data (from API)
+      // Inject add-ons: Prefer item_data from API (source of truth) over stored addons
       if (transformedCart.contents?.nodes) {
         transformedCart.contents.nodes.forEach((item: any) => {
-          const storedAddons = addonsStore.getItemAddons(item.key);
-          
-          // Prefer client-side store (has prices) over item_data (no prices)
-          if (storedAddons && storedAddons.length > 0) {
-            console.log('[useCart] 💉 Using stored add-ons with prices for item:', item.key);
-            item.extraData = [{
-              key: 'addons',
-              value: JSON.stringify(storedAddons),
-            }];
-          }
-          // If we have item_data from Store API, extract and store it for future refreshes
-          else if (item.extraData && item.extraData.length > 0) {
-            console.log('[useCart] ℹ️ Found add-ons from item_data for item:', item.key);
+          // Always prefer item_data from API (it's the source of truth from WooCommerce)
+          // This ensures we get the correct addons without duplicates
+          if (item.extraData && item.extraData.length > 0) {
+            console.log('[useCart] ✅ Using add-ons from item_data (API source of truth) for item:', item.key);
             
             // Parse and save to Pinia store so they persist across refreshes
             try {
               const addonsData = JSON.parse(item.extraData[0].value);
               if (addonsData && addonsData.length > 0) {
-                console.log('[useCart] 💾 Saving add-ons from item_data to store for persistence');
+                console.log('[useCart] 💾 Saving add-ons from item_data to store for persistence:', addonsData.length, 'addons');
+                console.log('[useCart] 📦 Addons data:', addonsData);
+                
+                // Store will normalize prices to numbers and prevent duplicates
                 addonsStore.setItemAddons(item.key, addonsData);
+              } else {
+                // Clear stored addons if item_data has no addons (item was updated)
+                console.log('[useCart] 🗑️ Clearing stored addons (item_data has no addons)');
+                addonsStore.removeItemAddons(item.key);
               }
             } catch (error) {
               console.error('[useCart] ❌ Error parsing item_data addons:', error);
+              // Clear corrupted stored addons
+              addonsStore.removeItemAddons(item.key);
+            }
+          }
+          // Fallback: use stored addons if item_data is not available
+          else {
+            const storedAddons = addonsStore.getItemAddons(item.key);
+            if (storedAddons && storedAddons.length > 0) {
+              console.log('[useCart] 💉 Using stored add-ons (fallback) for item:', item.key);
+              item.extraData = [{
+                key: 'addons',
+                value: JSON.stringify(storedAddons),
+              }];
             }
           }
         });

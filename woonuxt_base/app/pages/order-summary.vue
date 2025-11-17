@@ -123,10 +123,13 @@ function transformOrderToGraphQL(restOrder: any): Order {
             if (meta.display_value) {
               const priceMatch = meta.display_value.match(/\(\+\$([0-9,.]+)\)/);
               if (priceMatch) {
-                price = parseFloat(priceMatch[1].replace(/,/g, ''));
+                // Ensure we parse as number, removing commas and currency symbols
+                const priceStr = priceMatch[1].replace(/,/g, '');
+                price = parseFloat(priceStr) || 0;
                 console.log('[Order Summary] 💰 Extracted price from display_value:', {
                   displayValue: meta.display_value,
                   extracted: priceMatch[1],
+                  cleaned: priceStr,
                   parsed: price,
                 });
               } else {
@@ -136,13 +139,20 @@ function transformOrderToGraphQL(restOrder: any): Order {
             
             // Fallback: check if price is in meta.value or meta itself
             if (!price && meta.price) {
-              price = parseFloat(meta.price);
-              console.log('[Order Summary] 💰 Using meta.price:', price);
+              // Ensure price is converted to number, handling string prices
+              const priceValue = typeof meta.price === 'string' 
+                ? parseFloat(meta.price.replace(/[^0-9.-]+/g, '')) || 0
+                : parseFloat(meta.price) || 0;
+              price = priceValue;
+              console.log('[Order Summary] 💰 Using meta.price:', {
+                original: meta.price,
+                parsed: price,
+              });
             }
             
-            // Final validation
-            if (isNaN(price)) {
-              console.warn('[Order Summary] ⚠️ Price is NaN for addon:', meta);
+            // Final validation - ensure it's a valid number
+            if (typeof price !== 'number' || isNaN(price)) {
+              console.warn('[Order Summary] ⚠️ Price is invalid for addon:', meta);
               price = 0;
             }
             

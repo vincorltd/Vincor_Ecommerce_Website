@@ -95,6 +95,80 @@ function transformCartItemToGraphQL(storeApiItem: WooCartItem): any {
   // Extract add-ons from extensions (Store API might not return them)
   const extraData = extractAddonsFromCartItem(storeApiItem);
   
+  // Calculate addons total price (in cents)
+  let addonsTotalCents = 0;
+  if (extraData.length > 0) {
+    const addonsEntry = extraData.find(entry => entry.key === 'addons');
+    if (addonsEntry?.value) {
+      try {
+        const parsedAddons = JSON.parse(addonsEntry.value);
+        if (Array.isArray(parsedAddons)) {
+          addonsTotalCents = parsedAddons.reduce((sum: number, addon: any) => {
+            const price = typeof addon.price === 'number' ? addon.price : parseFloat(addon.price || '0') || 0;
+            // Convert dollars to cents
+            return sum + Math.round(price * 100);
+          }, 0);
+        }
+      } catch (e) {
+        console.warn('[Cart Transformer] ⚠️ Error parsing addons for price calculation:', e);
+      }
+    }
+  }
+  
+  // Calculate base price: total unit price (in cents) - addons total (in cents)
+  const totalUnitPriceCents = parseFloat(storeApiItem.prices.price) || 0;
+  const calculatedBasePriceCents = Math.max(0, totalUnitPriceCents - addonsTotalCents);
+  const calculatedBasePrice = (calculatedBasePriceCents / 100).toFixed(2);
+  
+  // Try to use raw_prices if available and reasonable, otherwise use calculated base price
+  let basePrice = calculatedBasePrice;
+  let baseRegularPrice = (parseFloat(storeApiItem.prices.regular_price) / 100).toFixed(2);
+  let baseSalePrice = storeApiItem.prices.sale_price ? (parseFloat(storeApiItem.prices.sale_price) / 100).toFixed(2) : '';
+  
+  // Check if raw_prices exists and is reliable
+  if (storeApiItem.prices.raw_prices?.price) {
+    const rawPriceValue = parseFloat(storeApiItem.prices.raw_prices.price);
+    // Check if raw_prices has precision field
+    const precision = storeApiItem.prices.raw_prices.precision || 2;
+    const divisor = Math.pow(10, precision);
+    const rawPriceConverted = (rawPriceValue / divisor).toFixed(2);
+    
+    // Only use raw_prices if it's reasonable (not way off from calculated)
+    const rawPriceNum = parseFloat(rawPriceConverted);
+    const calculatedPriceNum = parseFloat(calculatedBasePrice);
+    const difference = Math.abs(rawPriceNum - calculatedPriceNum);
+    
+    // If difference is less than 10% or less than $100, use raw_prices
+    if (difference < Math.max(calculatedPriceNum * 0.1, 100)) {
+      basePrice = rawPriceConverted;
+      console.log('[Cart Transformer] ✅ Using raw_prices for base price:', basePrice);
+    } else {
+      console.log('[Cart Transformer] ⚠️ raw_prices seems incorrect, using calculated:', {
+        rawPrice: rawPriceConverted,
+        calculated: calculatedBasePrice,
+        difference,
+      });
+    }
+    
+    // Same logic for regular_price and sale_price
+    if (storeApiItem.prices.raw_prices.regular_price) {
+      const rawRegularValue = parseFloat(storeApiItem.prices.raw_prices.regular_price);
+      baseRegularPrice = (rawRegularValue / divisor).toFixed(2);
+    }
+    if (storeApiItem.prices.raw_prices.sale_price) {
+      const rawSaleValue = parseFloat(storeApiItem.prices.raw_prices.sale_price);
+      baseSalePrice = (rawSaleValue / divisor).toFixed(2);
+    }
+  }
+  
+  console.log('[Cart Transformer] 💰 Price calculation:', {
+    totalUnitPriceCents,
+    addonsTotalCents,
+    calculatedBasePriceCents,
+    basePrice,
+    addonsCount: extraData.length,
+  });
+  
   const transformedItem = {
     key: storeApiItem.key,
     quantity: storeApiItem.quantity,
@@ -122,12 +196,14 @@ function transformCartItemToGraphQL(storeApiItem: WooCartItem): any {
           altText: storeApiItem.images[0].alt || storeApiItem.name,
           title: storeApiItem.images[0].name || storeApiItem.name,
         } : null,
-        price: formatPrice(storeApiItem.prices.price),
+        // Use raw_prices for base price (excludes addons), prices for display (includes addons)
+        price: formatPrice(storeApiItem.prices.price), // Total price (base + addons) for display
         regularPrice: formatPrice(storeApiItem.prices.regular_price),
         salePrice: formatPrice(storeApiItem.prices.sale_price),
-        rawPrice: (parseFloat(storeApiItem.prices.price) / 100).toFixed(2),
-        rawRegularPrice: (parseFloat(storeApiItem.prices.regular_price) / 100).toFixed(2),
-        rawSalePrice: (parseFloat(storeApiItem.prices.sale_price) / 100).toFixed(2),
+        // Use calculated or raw_prices for actual base product price (excludes addons)
+        rawPrice: basePrice,
+        rawRegularPrice: baseRegularPrice,
+        rawSalePrice: baseSalePrice,
         stockStatus: 'INSTOCK', // Store API doesn't include stock status in cart
         stockQuantity: null,
         lowStockAmount: storeApiItem.low_stock_remaining,
@@ -139,11 +215,14 @@ function transformCartItemToGraphQL(storeApiItem: WooCartItem): any {
       node: {
         name: storeApiItem.name,
         slug: storeApiItem.permalink?.split('/').pop() || '',
-        price: formatPrice(storeApiItem.prices.price),
+        // Use raw_prices for base price (excludes addons), prices for display (includes addons)
+        price: formatPrice(storeApiItem.prices.price), // Total price (base + addons) for display
         regularPrice: formatPrice(storeApiItem.prices.regular_price),
         salePrice: formatPrice(storeApiItem.prices.sale_price),
-        rawRegularPrice: (parseFloat(storeApiItem.prices.regular_price) / 100).toFixed(2),
-        rawSalePrice: (parseFloat(storeApiItem.prices.sale_price) / 100).toFixed(2),
+        // Use calculated or raw_prices for actual base product price (excludes addons)
+        rawPrice: basePrice,
+        rawRegularPrice: baseRegularPrice,
+        rawSalePrice: baseSalePrice,
         stockStatus: 'INSTOCK',
         image: storeApiItem.images?.[0] ? {
           sourceUrl: storeApiItem.images[0].src,
