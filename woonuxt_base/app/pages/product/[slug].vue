@@ -1,59 +1,106 @@
 <script lang="ts" setup>
 import { StockStatusEnum, ProductTypesEnum, type AddToCartInput } from '#woo';
 import type { SelectedAddon } from '~/services/api/types';
+import { useProductStore } from '~/stores/product';
 
 const route = useRoute();
 const { storeSettings } = useAppConfig();
 const { arraysEqual, formatArray, checkForVariationTypeOfAny } = useHelpers();
 const { addToCart, isUpdatingCart } = useCart();
 const { t } = useI18n();
-const slug = route.params.slug as string;
+
+// Ensure slug is properly decoded
+const slug = computed(() => {
+  const rawSlug = route.params.slug as string;
+  if (!rawSlug) return '';
+  // Decode URI component in case it's encoded
+  try {
+    return decodeURIComponent(rawSlug);
+  } catch {
+    return rawSlug;
+  }
+});
 
 // Use Pinia product store (singular) for individual product pages
 const productStore = useProductStore();
 
 // Fetch product with automatic caching (5-minute TTL)
 const { data: productData, pending, error, refresh } = await useAsyncData(
-  `product-${slug}`,
+  () => `product-${slug.value}`,
   async () => {
-    console.log('[Product Page] 🔄 Loading product:', slug);
-    const product = await productStore.fetchProduct(slug);
-    
-    if (!product) {
-      console.error('[Product Page] ❌ Product not found');
-      return null;
+    const currentSlug = slug.value;
+    if (!currentSlug) {
+      throw createError({ statusCode: 404, message: 'Product slug is required' });
     }
-    
-    console.log('[Product Page] ✅ Product loaded:', product.name);
-    console.log('[Product Page] 🎁 Add-ons count:', product.addons?.length || 0);
-    
-    // Debug: Log addon IDs
-    if (product.addons && product.addons.length > 0) {
-      console.log('[Product Page] 🔍 Add-ons debug:', product.addons.map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        fieldName: a.fieldName,
-        type: a.type
-      })));
+    console.log('[Product Page] 🔄 Loading product:', currentSlug);
+    try {
+      const product = await productStore.fetchProduct(currentSlug);
+      
+      if (!product) {
+        console.error('[Product Page] ❌ Product not found');
+        throw createError({ statusCode: 404, message: 'Product not found' });
+      }
+      
+      console.log('[Product Page] ✅ Product loaded:', product.name);
+      console.log('[Product Page] 🎁 Add-ons count:', product.addons?.length || 0);
+      
+      // Debug: Log addon IDs
+      if (product.addons && product.addons.length > 0) {
+        console.log('[Product Page] 🔍 Add-ons debug:', product.addons.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          fieldName: a.fieldName,
+          type: a.type
+        })));
+      }
+      
+      return product;
+    } catch (err: any) {
+      // If it's already a createError, rethrow it
+      if (err.statusCode) {
+        throw err;
+      }
+      // Otherwise wrap it
+      throw createError({ statusCode: 404, message: err.message || 'Product not found' });
     }
-    
-    return product;
   },
   {
     server: true,
     lazy: true,
     transform: (result) => result || null,
-    watch: [route],
+    watch: [slug],
   }
 );
 
 // Initialize product with SSR data
 const product = ref<Product>(productData.value);
 
-// Move 404 handling after data is ready
+// Update product when data changes (for client-side navigation)
+watch(productData, (newProduct) => {
+  if (newProduct) {
+    product.value = newProduct;
+  }
+}, { immediate: true });
+
+// Handle 404 errors - only throw after fetch has completed and failed
+// Use watchEffect to reactively handle errors
 watchEffect(() => {
-  if (!pending.value && !productData.value) {
-    throw createError({ statusCode: 404, message: 'Product not found' });
+  // Only throw error if:
+  // 1. Fetch is complete (not pending)
+  // 2. There's an actual error from the fetch
+  // 3. No product data was returned
+  if (!pending.value && error.value && !productData.value) {
+    // Check if it's a 404 error
+    const errorMessage = error.value.message || '';
+    if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+      throw createError({ statusCode: 404, message: 'Product not found' });
+    }
+  }
+  
+  // On server-side, also check if no data after fetch completes
+  if (process.server && !pending.value && !productData.value && !error.value) {
+    // Give it a moment - the error might be coming
+    // Don't throw immediately on SSR if there's no error yet
   }
 });
 
@@ -179,7 +226,11 @@ const formattedProductPrice = computed(() => formatPrice(regularProductPrice.val
 const addonsTotalPrice = computed(() => {
   let totalPrice = 0;
   for (const selectedOption of selectedOptions.value) {
-    totalPrice += selectedOption.price || 0;
+    // Ensure price is a number, not a string (prevents string concatenation)
+    const price = typeof selectedOption.price === 'string' 
+      ? parseFloat(selectedOption.price.replace(/[^0-9.-]+/g, '')) || 0
+      : parseFloat(selectedOption.price) || 0;
+    totalPrice += price;
   }
   return Math.round(totalPrice * 100) / 100;
 });
@@ -191,7 +242,8 @@ function calculateAddonTotalPrice(): number {
 
 // Calculate subtotal: base product + add-ons (computed for reactivity)
 const subtotalPrice = computed(() => {
-  const addonTotal = addonsTotalPrice.value;
+  // Ensure both values are numbers
+  const addonTotal = addonsTotalPrice.value || 0;
   const basePrice = regularProductPrice.value || 0;
   const total = basePrice + addonTotal;
   
@@ -276,15 +328,79 @@ function validateAddonsSelection(addons: any[], selected: any[]): { isValid: boo
 function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: string; value: string }> {
   const formatted: Array<{ key: string; value: string }> = [];
   const addonsArray: any[] = [];
+  const processedAddonIds = new Set<string>(); // Track processed addons to prevent duplicates
   
-  // Process each addon
+  console.log('[Product Page] 🔍 Formatting addons for cart:', {
+    selectedCount: selected.length,
+    addonsCount: addons.length,
+    selected: selected,
+  });
+  
+  // First, process all checkbox addons (they're stored in a flat array, not indexed)
+  addons.forEach((addon) => {
+    if (addon.type.toUpperCase() === 'CHECKBOX') {
+      // For checkboxes, find all selections with matching fieldName
+      const checkboxSelections = Array.isArray(selected) 
+        ? selected.filter((s: any) => s?.fieldName === addon.fieldName || s?.fieldName === addon.name)
+        : [];
+      
+      console.log('[Product Page] 🔍 Checkbox addon:', {
+        addonName: addon.name,
+        fieldName: addon.fieldName,
+        foundSelections: checkboxSelections.length,
+        selections: checkboxSelections,
+      });
+      
+      checkboxSelections.forEach((item: any) => {
+        const checkboxIndex = addon.options.findIndex((opt: any) => opt.label === item.label);
+        
+        // Ensure price is a number, not a string
+        const checkboxPrice = typeof item.price === 'string' 
+          ? parseFloat(item.price.replace(/[^0-9.-]+/g, '')) || 0
+          : parseFloat(item.price) || 0;
+        
+        const addonId = (addon.id || addon.fieldName || addon.name).toString();
+        const uniqueKey = `${addonId}-${item.label}`;
+        
+        // Prevent duplicates
+        if (!processedAddonIds.has(uniqueKey)) {
+          processedAddonIds.add(uniqueKey);
+          
+          addonsArray.push({
+            addonId: addonId,
+            fieldName: addon.name, // Use addon name for display
+            label: item.label || item.value,
+            value: item.label || item.value,
+            price: checkboxPrice,
+            optionIndex: checkboxIndex >= 0 ? checkboxIndex : 0,
+          });
+          
+          console.log('[Product Page] ✅ Added checkbox addon:', {
+            fieldName: addon.name,
+            label: item.label,
+            price: checkboxPrice,
+          });
+        }
+      });
+    }
+  });
+  
+  // Then, process indexed addons (multiple choice, selects, etc.)
   addons.forEach((addon, addonIndex) => {
+    // Skip checkboxes (already processed)
+    if (addon.type.toUpperCase() === 'CHECKBOX') {
+      return;
+    }
+    
     const selection = selected[addonIndex];
     
-    if (!selection || selection === addon.name) return;
+    // Skip if no selection or if it's the default placeholder
+    if (!selection || selection === addon.name || (typeof selection === 'object' && !selection.label && !selection.value)) {
+      return;
+    }
     
     // Find the option index for this selection
-    let optionIndex = 0; // Default to 0
+    let optionIndex = 0;
     if (addon.options && Array.isArray(addon.options)) {
       const foundIndex = addon.options.findIndex((opt: any) => 
         opt.label === (selection.label || selection.value || selection)
@@ -292,56 +408,50 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
       optionIndex = foundIndex >= 0 ? foundIndex : 0;
     }
     
-    console.log('[Product Page] 🔍 Formatting addon:', {
+    const addonId = (addon.id || addon.fieldName || addon.name).toString();
+    const selectionLabel = selection.label || selection.value || selection;
+    const uniqueKey = `${addonId}-${selectionLabel}`;
+    
+    // Prevent duplicates
+    if (processedAddonIds.has(uniqueKey)) {
+      console.log('[Product Page] ⚠️ Skipping duplicate addon:', uniqueKey);
+      return;
+    }
+    
+    processedAddonIds.add(uniqueKey);
+    
+    console.log('[Product Page] 🔍 Formatting indexed addon:', {
+      addonIndex,
       id: addon.id,
       fieldName: addon.fieldName,
-      selection: selection.label || selection,
+      name: addon.name,
+      selection: selectionLabel,
       optionIndex,
       optionsCount: addon.options?.length
     });
     
-    // Handle different addon types
-    if (addon.type.toUpperCase() === 'CHECKBOX') {
-      // For checkboxes, selection can be an array
-      const checkboxSelections = Array.isArray(selected) 
-        ? selected.filter((s: any) => s?.fieldName === addon.fieldName)
-        : [];
-      
-      checkboxSelections.forEach((item: any) => {
-        const checkboxIndex = addon.options.findIndex((opt: any) => opt.label === item.label);
-        
-        addonsArray.push({
-          addonId: addon.id || addon.fieldName || addon.name,
-          fieldName: addon.name, // Use addon name for display (e.g., "Coverage")
-          label: item.label || item.value,
-          value: item.label || item.value, // Selected value
-          price: parseFloat(item.price) || 0,
-          optionIndex: checkboxIndex >= 0 ? checkboxIndex : 0,
-        });
-      });
-    } else if (addon.type.toUpperCase().includes('MULTIPLECHOICE')) {
-      // For radio buttons and selects - include option index and addon ID
-      addonsArray.push({
-        addonId: addon.id || addon.fieldName || addon.name,
-        fieldName: addon.name, // Use addon name for display (e.g., "Coverage")
-        label: selection.label || selection.value || selection,
-        value: selection.label || selection.value || selection, // Selected value
-        price: parseFloat(selection.price) || 0,
-        optionIndex: optionIndex,
-      });
-    } else {
-      // Generic handler for other types (text inputs, etc.)
-      // For text/textarea/custom inputs, value is the text itself
-      addonsArray.push({
-        addonId: addon.id || addon.fieldName || addon.name,
-        fieldName: addon.name, // Use addon name for display (e.g., "Coverage")
-        label: selection.label || selection.value || selection,
-        value: selection.label || selection.value || selection, // Include value for text types
-        price: parseFloat(selection.price) || 0,
-        optionIndex: optionIndex,
-      });
-    }
+    // Ensure price is a number, not a string
+    const price = typeof selection.price === 'string' 
+      ? parseFloat(selection.price.replace(/[^0-9.-]+/g, '')) || 0
+      : parseFloat(selection.price) || 0;
+    
+    addonsArray.push({
+      addonId: addonId,
+      fieldName: addon.name, // Use addon name for display
+      label: selectionLabel,
+      value: selectionLabel,
+      price: price,
+      optionIndex: optionIndex,
+    });
+    
+    console.log('[Product Page] ✅ Added indexed addon:', {
+      fieldName: addon.name,
+      label: selectionLabel,
+      price: price,
+    });
   });
+  
+  console.log('[Product Page] 📦 Final addons array:', addonsArray);
   
   // Add 'addons' key with all add-ons as JSON (includes optionIndex for Store API)
   if (addonsArray.length > 0) {

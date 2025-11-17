@@ -168,23 +168,33 @@ export function extractAddonsFromCartItem(cartItem: any): Array<{ key: string; v
   
   let addonsData: any[] = [];
   
-  // Method 1: Check extensions.addons (Product Add-Ons Store API integration)
-  if (cartItem.extensions?.addons) {
-    console.log('[Addons Transformer] ✅ Found add-ons in extensions.addons');
-    addonsData = cartItem.extensions.addons;
-  }
-  // Method 2: Check extensions['product-add-ons'] (alternative structure)
-  else if (cartItem.extensions?.['product-add-ons']) {
-    console.log('[Addons Transformer] ✅ Found add-ons in extensions[product-add-ons]');
-    addonsData = cartItem.extensions['product-add-ons'];
-  }
-  // Method 3: Check item_data (fallback/legacy)
-  else if (cartItem.item_data && cartItem.item_data.length > 0) {
-    console.log('[Addons Transformer] ✅ Found add-ons in item_data');
+  // Method 1: Check item_data FIRST (most reliable - contains actual addon selections)
+  // item_data format: [{ name: "Dish Size", value: "3.7 (+ $585.00)" }, ...]
+  if (cartItem.item_data && Array.isArray(cartItem.item_data) && cartItem.item_data.length > 0) {
+    console.log('[Addons Transformer] ✅ Found add-ons in item_data (source of truth)');
     addonsData = cartItem.item_data;
   }
+  // Method 2: Check extensions.addons (but only if it's an array of addons, not metadata)
+  else if (cartItem.extensions?.addons) {
+    // Check if it's actually an array of addons or just metadata
+    if (Array.isArray(cartItem.extensions.addons)) {
+      console.log('[Addons Transformer] ✅ Found add-ons array in extensions.addons');
+      addonsData = cartItem.extensions.addons;
+    } else if (cartItem.extensions.addons.addons_data) {
+      // This is just metadata, not actual addons - skip it
+      console.log('[Addons Transformer] ⚠️ extensions.addons contains only metadata, not addon data');
+      console.log('[Addons Transformer] ℹ️ Falling back to item_data or skipping');
+    }
+  }
+  // Method 3: Check extensions['product-add-ons'] (alternative structure)
+  else if (cartItem.extensions?.['product-add-ons']) {
+    if (Array.isArray(cartItem.extensions['product-add-ons'])) {
+      console.log('[Addons Transformer] ✅ Found add-ons in extensions[product-add-ons]');
+      addonsData = cartItem.extensions['product-add-ons'];
+    }
+  }
   // No add-ons found
-  else {
+  if (addonsData.length === 0) {
     console.log('[Addons Transformer] ℹ️ No add-ons found for:', cartItem.name);
     return [];
   }
@@ -200,38 +210,119 @@ export function extractAddonsFromCartItem(cartItem: any): Array<{ key: string; v
   let normalizedAddons: CartAddonData[] = [];
   
   if (Array.isArray(addonsData)) {
+    // Use Set to track processed addons and prevent duplicates
+    const processedAddons = new Set<string>();
+    
     normalizedAddons = addonsData.map((item: any) => {
       // Extract field name (various possible keys)
       const fieldName = item.name || item.field_name || item.label || item.key || 'Unknown';
       
-      // Extract value (various possible keys)
-      const value = item.value || item.field_value || item.option || item.selected || '';
+      // Extract raw value (may contain price in format like "3.7 (+ $585.00)")
+      const rawValue = item.value || item.field_value || item.option || item.selected || '';
       
-      // Extract price (various possible formats)
+      // Parse value and price from strings like "3.7 (+ $585.00)" or "Center Zipper (+ $60.00)"
+      let value = rawValue;
       let price = 0;
-      if (item.price) {
-        price = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
-      } else if (item.price_amount) {
-        price = item.price_amount;
-      } else if (item.addon_price) {
-        price = parseFloat(item.addon_price);
+      
+      // Try to extract price from value string (format: "Label (+ $Price)" or "Label (+ &#36;Price)")
+      // Handle both regular $ and HTML entity &#36;
+      const priceMatch = rawValue.match(/\(\+\s*(?:&#36;|\$)?\s*([0-9,.]+)\s*\)/);
+      if (priceMatch) {
+        // Extract the clean value (remove price part)
+        // Handle both regular $ and HTML entity &#36;
+        value = rawValue.replace(/\s*\(\+\s*(?:&#36;|\$)?[0-9,.]+\)\s*$/i, '').trim();
+        // Extract and parse price
+        const priceStr = priceMatch[1].replace(/,/g, '');
+        price = parseFloat(priceStr) || 0;
+        
+        console.log('[Addons Transformer] 💰 Extracted price from value:', {
+          rawValue,
+          extractedValue: value,
+          extractedPrice: price,
+        });
       }
+      
+      // If price not found in value string, check other price fields
+      if (!price) {
+        if (item.price) {
+          price = typeof item.price === 'string' 
+            ? parseFloat(item.price.replace(/[^0-9.-]+/g, '')) || 0
+            : parseFloat(item.price) || 0;
+        } else if (item.price_amount) {
+          price = typeof item.price_amount === 'string'
+            ? parseFloat(item.price_amount.replace(/[^0-9.-]+/g, '')) || 0
+            : parseFloat(item.price_amount) || 0;
+        } else if (item.addon_price) {
+          price = typeof item.addon_price === 'string'
+            ? parseFloat(item.addon_price.replace(/[^0-9.-]+/g, '')) || 0
+            : parseFloat(item.addon_price) || 0;
+        }
+      }
+      
+      // Create unique key to prevent duplicates
+      const uniqueKey = `${fieldName}-${value}`;
+      
+      // Skip if we've already processed this addon
+      if (processedAddons.has(uniqueKey)) {
+        console.log('[Addons Transformer] ⚠️ Skipping duplicate addon:', uniqueKey);
+        return null;
+      }
+      
+      processedAddons.add(uniqueKey);
+      
+      console.log('[Addons Transformer] ✅ Parsed addon:', {
+        fieldName,
+        rawValue,
+        parsedValue: value,
+        price,
+      });
       
       return {
         fieldName,
         value,
         price,
-        label: fieldName,
+        label: value || fieldName, // Use the actual value as label (e.g., "3.7" or "Center Zipper")
       };
-    });
-  } else if (typeof addonsData === 'object') {
+    }).filter((addon): addon is CartAddonData => addon !== null); // Remove null entries
+  } else if (typeof addonsData === 'object' && !Array.isArray(addonsData)) {
     // Handle object format { "coverage": {...}, "voltage": {...} }
-    normalizedAddons = Object.values(addonsData).map((item: any) => ({
-      fieldName: item.name || item.field_name || 'Unknown',
-      value: item.value || item.field_value || '',
-      price: parseFloat(item.price || item.price_amount || '0'),
-      label: item.name || item.field_name || 'Unknown',
-    }));
+    // BUT skip if it's just metadata (like { "addons_data": {...} })
+    if (addonsData.addons_data && Object.keys(addonsData).length === 1) {
+      // This is just metadata, not actual addons
+      console.log('[Addons Transformer] ⚠️ Object is metadata only, not addon data');
+      return [];
+    }
+    
+    normalizedAddons = Object.values(addonsData)
+      .filter((item: any) => item && typeof item === 'object' && (item.name || item.field_name || item.value))
+      .map((item: any) => {
+        const fieldName = item.name || item.field_name || 'Unknown';
+        const rawValue = item.value || item.field_value || '';
+        
+        // Parse value and price (same logic as array format)
+        let value = rawValue;
+        let price = 0;
+        
+        const priceMatch = rawValue.match(/\(\+\s*(?:&#36;|\$)?\s*([0-9,.]+)\s*\)/);
+        if (priceMatch) {
+          value = rawValue.replace(/\s*\(\+\s*(?:&#36;|\$)?[0-9,.]+\)\s*$/i, '').trim();
+          const priceStr = priceMatch[1].replace(/,/g, '');
+          price = parseFloat(priceStr) || 0;
+        }
+        
+        if (!price) {
+          price = typeof item.price === 'string' 
+            ? parseFloat(item.price.replace(/[^0-9.-]+/g, '')) || 0
+            : parseFloat(item.price || item.price_amount || '0') || 0;
+        }
+        
+        return {
+          fieldName,
+          value,
+          price,
+          label: value || fieldName, // Use the actual value as label
+        };
+      });
   }
   
   console.log('[Addons Transformer] ✅ Normalized add-ons:', normalizedAddons);

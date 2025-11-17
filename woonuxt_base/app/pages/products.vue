@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useProductsStore } from '~/stores/products';
+
 const { setProducts, updateProductList } = useProducts();
 const { isFiltersActive } = useFiltering();
 const route = useRoute();

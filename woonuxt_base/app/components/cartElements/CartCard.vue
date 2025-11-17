@@ -22,7 +22,7 @@ const formatPrice = (price: number): string => {
   }).format(price);
 };
 
-// Parse add-ons from extraData
+// Parse add-ons from extraData with deduplication
 const itemAddons = computed(() => {
   try {
     if (!item.extraData || !Array.isArray(item.extraData)) {
@@ -38,7 +38,30 @@ const itemAddons = computed(() => {
     
     const parsed = JSON.parse(addonsEntry.value);
     console.log('[CartCard] ✅ Parsed add-ons for', item.product.node.name, ':', parsed);
-    return Array.isArray(parsed) ? parsed : [];
+    
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    
+    // Deduplicate addons by fieldName + value combination
+    const seen = new Set<string>();
+    const uniqueAddons = parsed.filter((addon: any) => {
+      const key = `${addon.fieldName || addon.label || 'unknown'}-${addon.value || addon.label || ''}`;
+      if (seen.has(key)) {
+        console.log('[CartCard] ⚠️ Filtering duplicate addon:', key);
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+    
+    console.log('[CartCard] 📦 Deduplicated addons:', {
+      original: parsed.length,
+      unique: uniqueAddons.length,
+      addons: uniqueAddons,
+    });
+    
+    return uniqueAddons;
   } catch (e) {
     console.error('[CartCard] ❌ Error parsing add-ons:', e);
     return [];
@@ -56,7 +79,13 @@ const baseUnitPrice = computed(() => {
 
 // Calculate add-ons total
 const addonsTotal = computed(() => {
-  return itemAddons.value.reduce((total, addon) => total + (parseFloat(addon.price) || 0), 0);
+  return itemAddons.value.reduce((total, addon) => {
+    // Ensure price is a number, not a string (prevents string concatenation)
+    const price = typeof addon.price === 'string' 
+      ? parseFloat(addon.price.replace(/[^0-9.-]+/g, '')) || 0
+      : parseFloat(addon.price) || 0;
+    return total + price;
+  }, 0);
 });
 
 // Get formatted base price
