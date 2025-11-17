@@ -14,6 +14,7 @@ export default defineNuxtConfig({
    * @property {boolean} failOnError - This stops the build from failing but the page will not be statically generated
    */
   nitro: {
+    preset: 'netlify-static',
     prerender: {
       concurrency: 10,
       interval: 1000,
@@ -21,15 +22,18 @@ export default defineNuxtConfig({
     },
     routeRules: {
       '/wp-admin/': { redirect: 'https://satchart.com/wp-admin/' },
-      '/api/sitemap-urls': { cors: true },
+      // API routes should NOT be prerendered - they are serverless functions
+      '/api/**': { cors: true, index: false, headers: { 'Cache-Control': 's-maxage=0' } },
+      '/api/sitemap-urls': { cors: true, index: false },
+    },
+    prerender: {
+      // API routes are excluded - they will be deployed as Netlify Functions
+      ignore: ['/api/**']
     },
   },
 
   devtools: {
     enabled: true,
-    timeline: {
-      enabled: true
-    }
   },
 
   devServer: {
@@ -37,12 +41,7 @@ export default defineNuxtConfig({
     port: 3000
   },
 
-  modules: ['@pinia/nuxt', '@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
-
-  // Configure Pinia to find stores in woonuxt_base layer
-  pinia: {
-    storesDirs: ['./woonuxt_base/app/stores'],
-  },
+  modules: ['@nuxtjs/sitemap', '@nuxtjs/robots', 'nuxt-graphql-client', 'nuxt-gtag'],
 
 'graphql-client': {
   clients: {

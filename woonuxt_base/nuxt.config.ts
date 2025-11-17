@@ -137,11 +137,14 @@ export default defineNuxtConfig({
       '/products/**': { swr: 3600 },
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
-      '/api/sitemap-urls': { cors: true },
-      '/api/categories': { swr: true },
+      // API routes should NOT be prerendered - they are serverless functions
+      '/api/**': { cors: true, index: false },
+      '/api/sitemap-urls': { cors: true, index: false },
+      '/api/categories': { cors: true, index: false },
     },
     prerender: {
-      routes: ['/api/categories']
+      // API routes are excluded - they will be deployed as Netlify Functions
+      ignore: ['/api/**']
     }
   },
 
