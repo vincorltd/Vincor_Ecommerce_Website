@@ -5,6 +5,7 @@
 
 [build]
   command = "nuxt generate"
+  publish = ".output/public"
   NODE_VERSION = "22.21.1"
 
 [images]
