@@ -42,7 +42,9 @@ useHead({
     </Transition>
 
     <LazyAppFooter />
-    <CookieConsent />
+    <ClientOnly>
+      <CookieConsent />
+    </ClientOnly>
   </div>
 </template>
 

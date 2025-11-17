@@ -2,7 +2,7 @@ import { createResolver } from '@nuxt/kit';
 const { resolve } = createResolver(import.meta.url);
 
 export default defineNuxtConfig({
-  compatibilityDate: '2024-07-09',
+  compatibilityDate: '2025-11-06',
   future: {
     compatibilityVersion: 4,
   },
@@ -105,8 +105,9 @@ export default defineNuxtConfig({
 
   image: {
     // provider: "netlify",
-
     domains: ["satchart.com"],
+    quality: 80,
+    format: ['webp', 'jpg'],
   },
 
 
@@ -136,8 +137,12 @@ export default defineNuxtConfig({
       '/products/**': { swr: 3600 },
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
-      '/api/sitemap-urls': { cors: true }
+      '/api/sitemap-urls': { cors: true },
+      '/api/categories': { swr: true },
     },
+    prerender: {
+      routes: ['/api/categories']
+    }
   },
 
   // Multilingual support

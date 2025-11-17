@@ -1,26 +1,54 @@
 export const useAnalyticsConsent = () => {
-    const { gtag } = useGtag()
-  
     const grantConsent = () => {
-      // Google Analytics consent
-      gtag('consent', 'update', {
-        analytics_storage: 'granted',
-        ad_storage: 'granted'
-      })
-  
-      // Matomo consent
-      window._paq?.push(['setConsentGiven'])
+      if (import.meta.client) {
+        try {
+          // Google Analytics consent - nuxt-gtag v4 API
+          const { gtag } = useGtag()
+          if (gtag && typeof gtag === 'function') {
+            gtag('consent', 'update', {
+              analytics_storage: 'granted',
+              ad_storage: 'granted'
+            })
+          }
+        } catch (error) {
+          console.warn('Google Analytics consent update failed:', error)
+        }
+    
+        // Matomo consent
+        try {
+          if (window._paq) {
+            window._paq.push(['setConsentGiven'])
+          }
+        } catch (error) {
+          console.warn('Matomo consent update failed:', error)
+        }
+      }
     }
   
     const denyConsent = () => {
-      // Google Analytics consent
-      gtag('consent', 'update', {
-        analytics_storage: 'denied',
-        ad_storage: 'denied'
-      })
-  
-      // Matomo consent
-      window._paq?.push(['forgetConsentGiven'])
+      if (import.meta.client) {
+        try {
+          // Google Analytics consent - nuxt-gtag v4 API
+          const { gtag } = useGtag()
+          if (gtag && typeof gtag === 'function') {
+            gtag('consent', 'update', {
+              analytics_storage: 'denied',
+              ad_storage: 'denied'
+            })
+          }
+        } catch (error) {
+          console.warn('Google Analytics consent update failed:', error)
+        }
+    
+        // Matomo consent
+        try {
+          if (window._paq) {
+            window._paq.push(['forgetConsentGiven'])
+          }
+        } catch (error) {
+          console.warn('Matomo consent update failed:', error)
+        }
+      }
     }
   
     return {

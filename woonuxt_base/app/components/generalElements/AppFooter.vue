@@ -8,7 +8,7 @@ const versionInfo = `WooNuxt v${wooNuxtVersionInfo}`;
     <div class="flex gap-12 my-24">
       <div class="ml-auto">
         <NuxtLink to="/">
-    <img src="https://files.vincor.com/vincor_logo.png" alt="Logo" class=" h-18 w-40" />
+    <img src="https://satchart.com/wp-content/uploads/vincor_media/Artboard-1-copy-2.png" alt="Logo" class=" h-18 w-40" />
   </NuxtLink>
         <WebsiteShortDescription />
       </div>

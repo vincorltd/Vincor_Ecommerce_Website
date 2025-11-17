@@ -1,18 +1,40 @@
 <script setup lang="ts">
-const cookieConsent = useCookie('cookie-consent')
-const showBanner = ref(!cookieConsent.value)
+const cookieConsent = useCookie('cookie-consent', {
+  maxAge: 60 * 60 * 24 * 365, // 1 year
+  path: '/',
+  sameSite: 'lax'
+})
+
+const showBanner = ref(false)
+
+// Only check cookie value on client side to avoid hydration mismatch
+onMounted(() => {
+  showBanner.value = !cookieConsent.value
+  console.log('Cookie consent status:', cookieConsent.value, 'Show banner:', showBanner.value)
+})
+
 const { grantConsent, denyConsent } = useAnalyticsConsent()
 
 const accept = () => {
-  cookieConsent.value = 'accepted'
-  showBanner.value = false
-  grantConsent()
+  try {
+    cookieConsent.value = 'accepted'
+    showBanner.value = false
+    grantConsent()
+    console.log('Cookie consent accepted, cookie value:', cookieConsent.value)
+  } catch (error) {
+    console.error('Error accepting cookies:', error)
+  }
 }
 
 const decline = () => {
-  cookieConsent.value = 'declined'
-  showBanner.value = false
-  denyConsent()
+  try {
+    cookieConsent.value = 'declined'
+    showBanner.value = false
+    denyConsent()
+    console.log('Cookie consent declined, cookie value:', cookieConsent.value)
+  } catch (error) {
+    console.error('Error declining cookies:', error)
+  }
 }
 </script>
 
