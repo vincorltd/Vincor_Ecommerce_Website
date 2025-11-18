@@ -10,7 +10,7 @@ const { isQueryEmpty } = useHelpers();
 // Use Pinia products store (plural) for listing page
 const productsStore = useProductsStore();
 
-// Fetch products from API (with caching)
+// Fetch products from API (with Pinia caching)
 const { data: allProducts, pending, error } = await useAsyncData(
   'all-products',
   async () => {
@@ -19,8 +19,16 @@ const { data: allProducts, pending, error } = await useAsyncData(
     return products;
   },
   {
-    server: true,
-    lazy: false,
+    server: false,  // Client-only (uses Pinia cache)
+    lazy: true,     // Non-blocking (shows UI immediately)
+    getCachedData: (key) => {
+      // Check Pinia cache first before fetching
+      if (productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        console.log('[Products Page] ⚡ Using Pinia cached products');
+        return productsStore.allProducts;
+      }
+      return undefined; // Will trigger fetch if cache expired
+    }
   }
 );
 
@@ -28,6 +36,13 @@ const { data: allProducts, pending, error } = await useAsyncData(
 if (allProducts.value) {
   setProducts(allProducts.value);
 }
+
+// Watch for products loading and sync with old composable
+watch(allProducts, (newProducts) => {
+  if (newProducts) {
+    setProducts(newProducts);
+  }
+}, { immediate: true });
 
 onMounted(() => {
   if (!isQueryEmpty.value) updateProductList();
@@ -48,45 +63,47 @@ useHead({
 </script>
 
 <template>
-  <!-- Loading state -->
-  <div v-if="pending" class="min-h-screen w-full flex items-center justify-center">
-    <div class="text-center">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-      <p class="text-gray-600">Loading products...</p>
+  <div>
+    <!-- Loading state -->
+    <div v-if="pending" class="min-h-screen w-full flex items-center justify-center">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p class="text-gray-600">Loading products...</p>
+      </div>
     </div>
-  </div>
 
-  <!-- Error state -->
-  <NoProductsFound v-else-if="error">
-    Error loading products: {{ error.message }}
-  </NoProductsFound>
+    <!-- Error state -->
+    <NoProductsFound v-else-if="error">
+      Error loading products: {{ error.message }}
+    </NoProductsFound>
 
-  <!-- Products loaded -->
-  <div class="min-h-screen w-full" v-else-if="allProducts && allProducts.length">
-    <div class="container mx-auto px-4 lg:px-8">
-      <div class="flex flex-col lg:flex-row lg:items-start gap-8">
-        <!-- Filters (handles both desktop and mobile internally) -->
-        <div v-if="storeSettings.showFilters" class="lg:sticky lg:top-4 lg:self-start">
-          <Filters :hide-categories="false" />
-        </div>
-        
-        <!-- Main content -->
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between w-full gap-4 mt-8 lg:gap-8">
-            <ProductResultCount />
-            <div class="flex items-center gap-2">
-              <ShowFilterTrigger v-if="storeSettings.showFilters" class="lg:hidden" />
-              <OrderByDropdown class="hidden lg:inline-flex" v-if="storeSettings.showOrderByDropdown" />
-            </div>
+    <!-- Products loaded -->
+    <div class="min-h-screen w-full" v-else-if="allProducts && allProducts.length">
+      <div class="container mx-auto px-4 lg:px-8">
+        <div class="flex flex-col lg:flex-row lg:items-start gap-8">
+          <!-- Filters (handles both desktop and mobile internally) -->
+          <div v-if="storeSettings.showFilters" class="lg:sticky lg:top-4 lg:self-start">
+            <Filters :hide-categories="false" />
           </div>
-          <ProductGrid />
+          
+          <!-- Main content -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between w-full gap-4 mt-8 lg:gap-8">
+              <ProductResultCount />
+              <div class="flex items-center gap-2">
+                <ShowFilterTrigger v-if="storeSettings.showFilters" class="lg:hidden" />
+                <OrderByDropdown class="hidden lg:inline-flex" v-if="storeSettings.showOrderByDropdown" />
+              </div>
+            </div>
+            <ProductGrid />
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- No products -->
-  <NoProductsFound v-else>
-    No products found. Please check your configuration or try again later.
-  </NoProductsFound>
+    <!-- No products -->
+    <NoProductsFound v-else>
+      No products found. Please check your configuration or try again later.
+    </NoProductsFound>
+  </div>
 </template>
