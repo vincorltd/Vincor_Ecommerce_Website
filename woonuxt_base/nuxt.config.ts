@@ -150,6 +150,8 @@ export default defineNuxtConfig({
       // Crawl and pre-render product pages
       crawlLinks: true,
       routes: ['/products'],
+      // Don't fail build on 404s (some products may not exist)
+      failOnError: false,
       // API routes are excluded - they will be deployed as Netlify Functions
       ignore: ['/api/**']
     }
