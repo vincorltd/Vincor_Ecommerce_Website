@@ -280,6 +280,20 @@ export const useProductStore = defineStore('product', {
     },
 
     /**
+     * Normalize WooCommerce stock status to GraphQL enum format
+     */
+    normalizeStockStatus(status: string | undefined): string {
+      if (!status) return 'IN_STOCK';
+      
+      const normalized = status.toLowerCase();
+      if (normalized === 'instock') return 'IN_STOCK';
+      if (normalized === 'outofstock') return 'OUT_OF_STOCK';
+      if (normalized === 'onbackorder') return 'ON_BACKORDER';
+      
+      return 'IN_STOCK'; // Default to in stock
+    },
+
+    /**
      * Pre-cache a product (useful for prefetching)
      */
     cacheProduct(slug: string, product: Product): void {
@@ -378,7 +392,7 @@ export const useProductStore = defineStore('product', {
             title: img.name || restProduct.name
           }))
         },
-        stockStatus: restProduct.stock_status?.toUpperCase() || 'INSTOCK',
+        stockStatus: this.normalizeStockStatus(restProduct.stock_status),
         slug: restProduct.slug,
         databaseId: restProduct.id,
         addons: restProduct.addons || [],
@@ -415,7 +429,7 @@ export const useProductStore = defineStore('product', {
         ...variation,
         databaseId: variation.id,
         name: variation.name || parentProduct.name,
-        stockStatus: variation.stock_status?.toUpperCase() || 'INSTOCK',
+        stockStatus: this.normalizeStockStatus(variation.stock_status),
         // Formatted prices for display
         regularPrice: this.formatPrice(variation.regular_price || 0),
         salePrice: variation.sale_price ? this.formatPrice(variation.sale_price) : '',

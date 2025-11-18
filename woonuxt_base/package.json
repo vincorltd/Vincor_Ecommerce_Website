@@ -2,5 +2,8 @@
   "name": "woonuxt",
   "version": "4.3.14",
   "main": "./nuxt.config.ts",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@tato30/vue-pdf": "^1.11.5"
+  }
 }

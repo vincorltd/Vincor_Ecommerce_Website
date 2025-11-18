@@ -184,7 +184,31 @@ export function useCart() {
       }
     } catch (error: any) {
       console.error('[useCart] ❌ Error adding to cart:', error);
-      alert(error.message || 'Failed to add item to cart');
+      
+      const { warning, error: notifyError } = useNotification();
+      
+      // Parse error message for user-friendly display
+      let errorMessage = 'Failed to add item to cart';
+      
+      if (error.data?.message) {
+        // WooCommerce error message (may contain HTML entities)
+        errorMessage = error.data.message
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Check for specific error types and show appropriate notification
+      if (errorMessage.includes('out of stock') || errorMessage.includes('out-of-stock')) {
+        warning('This product is currently out of stock and cannot be added to your cart.', 'Out of Stock');
+      } else if (errorMessage.includes('backorder')) {
+        warning('This product is on backorder. Please contact us for availability.', 'On Backorder');
+      } else {
+        notifyError(errorMessage, 'Error');
+      }
     } finally {
       isUpdatingCart.value = false;
     }

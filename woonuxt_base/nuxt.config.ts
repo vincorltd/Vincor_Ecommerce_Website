@@ -43,6 +43,22 @@ export default defineNuxtConfig({
     port: 3000
   },
 
+  // Vite configuration for @tato30/vue-pdf compatibility
+  vite: {
+    optimizeDeps: {
+      esbuildOptions: {
+        supported: {
+          'top-level-await': true,
+        },
+      },
+    },
+    esbuild: {
+      supported: {
+        'top-level-await': true,
+      },
+    },
+  },
+
   modules: ['@pinia/nuxt', 'woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', 
     
     '@nuxt/image', '@nuxtjs/i18n', '@nuxtjs/sitemap'],

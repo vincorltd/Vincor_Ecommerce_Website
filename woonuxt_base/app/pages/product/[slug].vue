@@ -195,7 +195,10 @@ watch(productData, (newData) => {
 
 // Keep all your existing helper functions
 const stockStatus = computed(() => type.value?.stockStatus || StockStatusEnum.OUT_OF_STOCK);
-const disabledAddToCart = computed(() => !type.value || stockStatus.value === StockStatusEnum.ON_BACKORDER || isUpdatingCart.value);
+const isOutOfStock = computed(() => stockStatus.value === StockStatusEnum.OUT_OF_STOCK || stockStatus.value === 'OUT_OF_STOCK');
+const isOnBackorder = computed(() => stockStatus.value === StockStatusEnum.ON_BACKORDER || stockStatus.value === 'ON_BACKORDER');
+const isInStock = computed(() => stockStatus.value === StockStatusEnum.IN_STOCK || stockStatus.value === 'IN_STOCK');
+const disabledAddToCart = computed(() => !type.value || isOutOfStock.value || isOnBackorder.value || isUpdatingCart.value);
 
 const selectedOptions = ref([]) as Ref<ProductAddonOption>;
 
@@ -485,8 +488,21 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
 }
 
 // Add to cart handler with REST API add-ons formatting
+const { warning, error: notifyError } = useNotification();
+
 function handleAddToCart() {
   if (!product.value) return;
+  
+  // Check stock status first
+  if (isOutOfStock.value) {
+    warning('This product is currently out of stock and cannot be added to your cart.', 'Out of Stock');
+    return;
+  }
+  
+  if (isOnBackorder.value) {
+    warning('This product is on backorder. Please contact us for availability.', 'On Backorder');
+    return;
+  }
   
   console.log('[Product Page] 🛒 Adding to cart...');
   console.log('[Product Page] Selected options:', selectedOptions.value);
@@ -499,7 +515,7 @@ function handleAddToCart() {
     );
     
     if (!validation.isValid) {
-      alert(validation.error || 'Please complete all required options');
+      notifyError(validation.error || 'Please complete all required options', 'Validation Error');
       return;
     }
     
@@ -672,13 +688,20 @@ useHead(() => ({
         >
           <!-- Product Header - Amazon Style -->
           <div class="mb-4">
-            <h1 class="text-2xl font-normal text-gray-900 leading-snug mb-2">
+            <h1 class="text-2xl font-normal text-gray-900 leading-snug mb-3">
               {{ type.name }}
             </h1>
-            <div class="flex items-center gap-4 text-sm text-gray-600 mb-3">
-              <BrandImage :product="product" />
-              <span v-if="storeSettings.showSKU">SKU: <span class="text-gray-900">{{ product.sku || 'N/A' }}</span></span>
-              <WPAdminLink :link="`/wp-admin/post.php?post=${product.databaseId}&action=edit`" class="text-primary hover:text-primary-dark hover:underline">Edit</WPAdminLink>
+            <div class="flex items-start gap-4 mb-3">
+              <!-- Left: Manufacturer Logo & SKU -->
+              <div class="flex flex-col gap-1">
+                <BrandImage :product="product" />
+                <span v-if="storeSettings.showSKU" class="text-xs text-gray-600">
+                  SKU: <span class="text-gray-900">{{ product.sku || 'N/A' }}</span>
+                </span>
+              </div>
+              
+              <!-- Right: Edit Link -->
+              <WPAdminLink :link="`/wp-admin/post.php?post=${product.databaseId}&action=edit`" class="text-sm text-primary hover:text-primary-dark hover:underline ml-auto">Edit</WPAdminLink>
             </div>
           </div>
 
@@ -693,6 +716,40 @@ useHead(() => ({
                 :regular-price="type.regularPrice" 
               />
             </div>
+            
+            <!-- Stock Status Badge -->
+            <div class="mt-3">
+              <span 
+                v-if="isInStock" 
+                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800"
+              >
+                <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                In Stock
+              </span>
+              
+              <span 
+                v-else-if="isOnBackorder" 
+                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800"
+              >
+                <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                On Backorder
+              </span>
+              
+              <span 
+                v-else-if="isOutOfStock" 
+                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800"
+              >
+                <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+                Out of Stock
+              </span>
+            </div>
+            
             <div v-if="hasNorsatTag" class="text-sm text-gray-700 mt-2">
               <p>MSRP: {{ type.regularPrice }}</p>
               <p class="text-red-700 font-semibold">Call for pricing</p>
@@ -849,7 +906,7 @@ useHead(() => ({
 
             <!-- Add to Cart Section - Vincor Style -->
             <div class="fixed bottom-0 left-0 z-10 flex items-center w-full gap-3 p-4 mt-8 bg-white md:static md:bg-transparent border-t md:border-t-0 md:p-0 shadow-lg md:shadow-none">
-              <div class="flex items-center">
+              <div class="flex items-center" v-if="isInStock">
                 <label class="text-xs text-gray-700 mr-2 font-semibold">Qty:</label>
                 <input
                   v-model="quantity"
@@ -859,7 +916,28 @@ useHead(() => ({
                   class="w-16 px-2 py-1 text-sm text-center border border-gray-400 rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" 
                 />
               </div>
+              
+              <!-- Out of Stock Button -->
+              <button
+                v-if="isOutOfStock"
+                disabled
+                class="flex-1 md:max-w-xs px-6 py-2.5 text-sm font-bold text-white bg-red-500 rounded-lg shadow-sm cursor-not-allowed opacity-75"
+              >
+                Out of Stock
+              </button>
+              
+              <!-- On Backorder Button -->
+              <button
+                v-else-if="isOnBackorder"
+                disabled
+                class="flex-1 md:max-w-xs px-6 py-2.5 text-sm font-bold text-white bg-yellow-600 rounded-lg shadow-sm cursor-not-allowed opacity-75"
+              >
+                On Backorder - Contact Us
+              </button>
+              
+              <!-- Normal Add to Cart Button -->
               <AddToCartButton 
+                v-else
                 class="flex-1 md:max-w-xs px-6 py-2.5 text-sm font-bold text-white bg-gray-800 hover:bg-gray-900 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400" 
                 :disabled="disabledAddToCart" 
                 :class="{ loading: isUpdatingCart }" 
