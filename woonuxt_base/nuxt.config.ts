@@ -132,7 +132,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    preset: 'netlify',
+    preset: 'netlify_edge',
     routeRules: {
       '/': { prerender: true },
       '/products/**': { swr: 3600 },
