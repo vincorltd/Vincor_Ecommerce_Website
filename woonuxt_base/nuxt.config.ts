@@ -135,7 +135,10 @@ export default defineNuxtConfig({
     preset: 'netlify_edge',
     routeRules: {
       '/': { prerender: true },
-      '/products/**': { swr: 3600 },
+      '/products': { prerender: true, swr: 3600 },  // Pre-render + SWR cache
+      '/products/**': { swr: 3600 },                 // SWR cache for pagination
+      '/product/**': { swr: 3600 },                  // SWR cache for product pages
+      '/product-category/**': { swr: 3600 },         // SWR cache for categories
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
       // API routes should NOT be prerendered - they are serverless functions
@@ -144,6 +147,9 @@ export default defineNuxtConfig({
       '/api/categories': { cors: true, index: false },
     },
     prerender: {
+      // Crawl and pre-render product pages
+      crawlLinks: true,
+      routes: ['/products'],
       // API routes are excluded - they will be deployed as Netlify Functions
       ignore: ['/api/**']
     }

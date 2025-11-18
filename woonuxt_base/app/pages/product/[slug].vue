@@ -24,7 +24,7 @@ const slug = computed(() => {
 // Use Pinia product store (singular) for individual product pages
 const productStore = useProductStore();
 
-// Fetch product with Pinia caching (client-side)
+// Fetch product with TRUE hybrid: SSR first load, then Pinia cache
 const { data: productData, pending, error, refresh } = await useAsyncData(
   () => `product-${slug.value}`,
   async () => {
@@ -77,18 +77,18 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
     }
   },
   {
-    server: false,  // Client-only (uses Pinia cache)
-    lazy: true,     // Non-blocking
+    server: true,   // SSR/SSG for instant first load
+    lazy: false,    // Blocking (wait for data before showing page)
     transform: (result) => result || null,
     watch: [slug],
     getCachedData: (key) => {
-      // Check Pinia cache first
+      // On client-side navigation, check Pinia cache FIRST
       const cached = productStore.productCache.get(slug.value);
-      if (cached && productStore.isProductCached(slug.value)) {
-        console.log('[Product Page] ⚡ Using Pinia cached product:', slug.value);
+      if (process.client && cached && productStore.isProductCached(slug.value)) {
+        console.log('[Product Page] ⚡ Using Pinia cached product (client navigation):', slug.value);
         return cached.product;
       }
-      return undefined; // Will trigger fetch if not cached
+      return undefined; // Server-side or cache expired: fetch fresh
     }
   }
 );

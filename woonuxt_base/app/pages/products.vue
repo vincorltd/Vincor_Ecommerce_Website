@@ -10,7 +10,7 @@ const { isQueryEmpty } = useHelpers();
 // Use Pinia products store (plural) for listing page
 const productsStore = useProductsStore();
 
-// Fetch products from API (with Pinia caching)
+// Fetch products with TRUE hybrid: SSR first load, then Pinia cache
 const { data: allProducts, pending, error } = await useAsyncData(
   'all-products',
   async () => {
@@ -19,15 +19,15 @@ const { data: allProducts, pending, error } = await useAsyncData(
     return products;
   },
   {
-    server: false,  // Client-only (uses Pinia cache)
-    lazy: true,     // Non-blocking (shows UI immediately)
+    server: true,   // SSR/SSG for instant first load
+    lazy: false,    // Blocking (wait for data before showing page)
     getCachedData: (key) => {
-      // Check Pinia cache first before fetching
-      if (productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
-        console.log('[Products Page] ⚡ Using Pinia cached products');
+      // On client-side navigation, check Pinia cache FIRST
+      if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        console.log('[Products Page] ⚡ Using Pinia cached products (client navigation)');
         return productsStore.allProducts;
       }
-      return undefined; // Will trigger fetch if cache expired
+      return undefined; // Server-side or cache expired: fetch fresh
     }
   }
 );
