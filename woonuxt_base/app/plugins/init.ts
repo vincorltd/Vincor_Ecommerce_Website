@@ -81,44 +81,42 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       const success: boolean = await refreshCart();
       console.log('Debug - Cart refresh result:', { success });
 
-      useGqlError((err: any) => {
-        console.error('Debug - GraphQL Error in initStore:', {
-          message: err?.gqlErrors?.[0]?.message,
-          fullError: err
-        });
-
-        const serverErrors = ['The iss do not match with this server', 'Invalid session token'];
-        if (serverErrors.includes(err?.gqlErrors?.[0]?.message)) {
-          console.log('Debug - Server error detected, clearing cookies and storage');
-          clearAllCookies();
-          clearAllLocalStorage();
-          window.location.reload();
-        }
-      });
-
+      // Use sessionStorage to track reload attempts (survives clearAllLocalStorage)
+      const RELOAD_KEY = 'cart_refresh_attempted';
+      
       if (!success) {
-        console.log('Debug - Cart refresh failed, clearing data');
-        clearAllCookies();
-        clearAllLocalStorage();
-
-        const reloadCount = useCookie('reloadCount');
-        console.log('Debug - Reload count:', reloadCount.value);
+        console.log('Debug - Cart refresh failed');
         
-        if (!reloadCount.value) {
-          reloadCount.value = '1';
-          console.log('Debug - Set reload count to 1');
-        } else {
-          console.log('Debug - Already attempted reload, stopping');
+        // Check if we've already tried to recover
+        const alreadyAttempted = sessionStorage.getItem(RELOAD_KEY);
+        if (alreadyAttempted) {
+          console.log('Debug - Already attempted recovery, stopping to prevent infinite loop');
+          // Clear the flag so next time user visits it can try again
+          sessionStorage.removeItem(RELOAD_KEY);
           return;
         }
+
+        console.log('Debug - First attempt, marking and reloading');
+        
+        // Set flag BEFORE clearing/reloading (sessionStorage survives localStorage clear)
+        sessionStorage.setItem(RELOAD_KEY, 'true');
+        
+        // Now clear cookies and localStorage
+        clearAllCookies();
+        clearAllLocalStorage();
 
         const { logoutUser } = useAuth();
         console.log('Debug - Logging out user');
         await logoutUser();
 
-        if (!reloadCount.value) {
-          console.log('Debug - Triggering page reload');
-          window.location.reload();
+        console.log('Debug - Triggering page reload');
+        window.location.reload();
+      } else {
+        // Success! Clear any existing reload flag
+        const alreadyAttempted = sessionStorage.getItem(RELOAD_KEY);
+        if (alreadyAttempted) {
+          console.log('Debug - Cart refresh successful, clearing reload flag');
+          sessionStorage.removeItem(RELOAD_KEY);
         }
       }
     }
