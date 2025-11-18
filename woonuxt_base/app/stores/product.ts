@@ -96,7 +96,21 @@ export const useProductStore = defineStore('product', {
 
       try {
         // Get base URL from runtime config
-        const config = useRuntimeConfig();
+        let config: any;
+        try {
+          config = useRuntimeConfig();
+        } catch (e) {
+          // During prerendering, useRuntimeConfig might not be available
+          console.warn('[Product Store] ⚠️ useRuntimeConfig not available, using env vars directly');
+          config = {
+            public: {
+              wooRestApiUrl: process.env.WOO_REST_API_URL || process.env.WOO_API_URL || 'https://satchart.com/wp-json/wc/v3',
+              siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://vincor.com',
+            },
+            wooConsumerKey: process.env.WOO_REST_API_CONS_KEY || '',
+            wooConsumerSecret: process.env.WOO_REST_API_CONS_SEC || '',
+          };
+        }
         
         // Use localhost for dev server, siteUrl for production
         const baseURL = process.server 
@@ -105,13 +119,73 @@ export const useProductStore = defineStore('product', {
         
         console.log('[Product Store] 🌐 Fetching from:', `${baseURL}/api/products/${slug}`, { isDev: process.dev, isServer: process.server });
         
-        const response = await fetch(`${baseURL}/api/products/${slug}`);
+        let response = await fetch(`${baseURL}/api/products/${slug}`);
+        
+        // If API route returns 404 during server-side rendering, fall back to WooCommerce REST API directly
+        if (response.status === 404 && process.server && !process.dev) {
+          console.log('[Product Store] 🔄 API route not available during prerender, calling WooCommerce REST API directly...');
+          
+          const consumerKey = config.wooConsumerKey || process.env.WOO_REST_API_CONS_KEY;
+          const consumerSecret = config.wooConsumerSecret || process.env.WOO_REST_API_CONS_SEC;
+          
+          if (!consumerKey || !consumerSecret) {
+            console.error('[Product Store] ❌ Missing WooCommerce API credentials for direct API call');
+            console.error('[Product Store] ⚠️ WOO_REST_API_CONS_KEY and WOO_REST_API_CONS_SEC must be set');
+            this.error = 'Product not found (missing API credentials)';
+            this.isLoading = false;
+            return null;
+          }
+          
+          // Build WooCommerce REST API URL directly
+          let wooBaseUrl = config.public.wooRestApiUrl || process.env.WOO_REST_API_URL || 'https://satchart.com/wp-json/wc/v3';
+          wooBaseUrl = wooBaseUrl.replace(/\/wc\/v[0-9]+\/?$/, '');
+          if (!wooBaseUrl.endsWith('/wp-json')) {
+            wooBaseUrl = wooBaseUrl.replace(/\/?$/, '/wp-json');
+          }
+          
+          // Check if it's a numeric ID or slug
+          let wooUrl: string;
+          if (isNaN(Number(slug))) {
+            wooUrl = `${wooBaseUrl}/wc/v3/products?slug=${encodeURIComponent(slug)}&context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+          } else {
+            wooUrl = `${wooBaseUrl}/wc/v3/products/${slug}?context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+          }
+          
+          console.log('[Product Store] 🌐 Calling WooCommerce REST API directly:', wooUrl.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+          
+          response = await fetch(wooUrl);
+          
+          if (response.status === 401 || response.status === 403) {
+            console.error('[Product Store] ❌ WooCommerce API authentication failed');
+            this.error = 'Product not found (authentication failed)';
+            this.isLoading = false;
+            return null;
+          }
+          
+          if (response.status === 404) {
+            console.warn(`[Product Store] ⚠️ Product ${slug} not found in WooCommerce`);
+            this.error = 'Product not found';
+            this.isLoading = false;
+            return null;
+          }
+        } else if (response.status === 404) {
+          // Regular 404 handling (not during prerender)
+          console.warn(`[Product Store] ⚠️ Skipping product ${slug} (404).`);
+          this.error = 'Product not found';
+          this.isLoading = false;
+          return null;
+        }
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const restProduct = await response.json();
+        let restProduct = await response.json();
+        
+        // If WooCommerce returned an array (when searching by slug), get first item
+        if (Array.isArray(restProduct)) {
+          restProduct = restProduct[0];
+        }
 
         if (!restProduct) {
           console.error('[Product Store] ❌ Product not found:', slug);
@@ -130,18 +204,40 @@ export const useProductStore = defineStore('product', {
           console.log('[Product Store] 📦 Fetching variations:', restProduct.variations.length);
           
           try {
-            // Use same baseURL logic for variations
-            const variationsResponse = await fetch(`${baseURL}/api/products/${restProduct.id}/variations`);
+            // Try API route first, fall back to WooCommerce REST API if needed
+            let variationsResponse = await fetch(`${baseURL}/api/products/${restProduct.id}/variations`);
             
-            if (!variationsResponse.ok) {
-              throw new Error(`Failed to fetch variations`);
+            // If API route not available, call WooCommerce directly
+            if (variationsResponse.status === 404 && process.server && !process.dev) {
+              const consumerKey = config.wooConsumerKey || process.env.WOO_REST_API_CONS_KEY;
+              const consumerSecret = config.wooConsumerSecret || process.env.WOO_REST_API_CONS_SEC;
+              
+              if (consumerKey && consumerSecret) {
+                let wooBaseUrl = config.public.wooRestApiUrl || process.env.WOO_REST_API_URL || 'https://satchart.com/wp-json/wc/v3';
+                wooBaseUrl = wooBaseUrl.replace(/\/wc\/v[0-9]+\/?$/, '');
+                if (!wooBaseUrl.endsWith('/wp-json')) {
+                  wooBaseUrl = wooBaseUrl.replace(/\/?$/, '/wp-json');
+                }
+                
+                const wooVariationsUrl = `${wooBaseUrl}/wc/v3/products/${restProduct.id}/variations?consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+                console.log('[Product Store] 🌐 Fetching variations from WooCommerce REST API directly');
+                variationsResponse = await fetch(wooVariationsUrl);
+              }
             }
             
-            const variations = await variationsResponse.json();
-            transformed.variations = {
-              nodes: (variations as any[]).map(v => this.transformVariationToGraphQL(v, restProduct))
-            };
-            console.log('[Product Store] ✅ Variations loaded:', variations.length);
+            // Handle 404 gracefully for variations
+            if (variationsResponse.status === 404) {
+              console.warn(`[Product Store] ⚠️ Variations not found for product ${restProduct.id}, continuing without variations.`);
+              transformed.variations = { nodes: [] };
+            } else if (!variationsResponse.ok) {
+              throw new Error(`Failed to fetch variations`);
+            } else {
+              const variations = await variationsResponse.json();
+              transformed.variations = {
+                nodes: (variations as any[]).map(v => this.transformVariationToGraphQL(v, restProduct))
+              };
+              console.log('[Product Store] ✅ Variations loaded:', variations.length);
+            }
           } catch (e) {
             console.error('[Product Store] ⚠️ Error fetching variations:', e);
             // Continue without variations

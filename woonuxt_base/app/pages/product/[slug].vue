@@ -37,7 +37,13 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
       const product = await productStore.fetchProduct(currentSlug);
       
       if (!product) {
-        console.error('[Product Page] ❌ Product not found');
+        console.warn('[Product Page] ⚠️ Product not found:', currentSlug);
+        // During server-side rendering (including prerendering), return null instead of throwing
+        // This allows the build to continue. At runtime, the template will handle the 404 gracefully
+        if (process.server) {
+          return null;
+        }
+        // Only throw at client-side runtime (not during SSR/prerender)
         throw createError({ statusCode: 404, message: 'Product not found' });
       }
       
@@ -56,11 +62,17 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
       
       return product;
     } catch (err: any) {
-      // If it's already a createError, rethrow it
+      // During server-side rendering (including prerendering), catch errors and return null
+      // This allows the build to continue
+      if (process.server) {
+        console.warn('[Product Page] ⚠️ Error during SSR/prerender, skipping:', err.message);
+        return null;
+      }
+      // If it's already a createError, rethrow it (only at client-side runtime)
       if (err.statusCode) {
         throw err;
       }
-      // Otherwise wrap it
+      // Otherwise wrap it (only at client-side runtime)
       throw createError({ statusCode: 404, message: err.message || 'Product not found' });
     }
   },
@@ -82,10 +94,15 @@ watch(productData, (newProduct) => {
   }
 }, { immediate: true });
 
-// Handle 404 errors - only throw after fetch has completed and failed
+// Handle 404 errors - only throw at client-side runtime, not during SSR/prerendering
 // Use watchEffect to reactively handle errors
 watchEffect(() => {
-  // Only throw error if:
+  // Skip error handling during server-side rendering
+  if (process.server) {
+    return;
+  }
+  
+  // Only throw error at client-side runtime if:
   // 1. Fetch is complete (not pending)
   // 2. There's an actual error from the fetch
   // 3. No product data was returned
@@ -95,12 +112,6 @@ watchEffect(() => {
     if (errorMessage.includes('404') || errorMessage.includes('not found')) {
       throw createError({ statusCode: 404, message: 'Product not found' });
     }
-  }
-  
-  // On server-side, also check if no data after fetch completes
-  if (process.server && !pending.value && !productData.value && !error.value) {
-    // Give it a moment - the error might be coming
-    // Don't throw immediately on SSR if there's no error yet
   }
 });
 
