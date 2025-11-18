@@ -3,6 +3,7 @@ const route = useRoute();
 const { isShowingCart, toggleCart } = useCart();
 const { isShowingMobileMenu, toggleMobileMenu, addBodyClass, removeBodyClass } = useHelpers();
 const { siteName } = useAppConfig();
+const { notificationState, hideNotification } = useNotification();
 
 const closeCartAndMenu = () => {
   toggleCart(false);
@@ -45,6 +46,15 @@ useHead({
     <ClientOnly>
       <CookieConsent />
     </ClientOnly>
+    
+    <!-- Global Notification Modal -->
+    <NotificationModal
+      :show="notificationState.show"
+      :title="notificationState.title"
+      :message="notificationState.message"
+      :type="notificationState.type"
+      @close="hideNotification"
+    />
   </div>
 </template>
 
