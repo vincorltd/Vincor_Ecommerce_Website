@@ -4,9 +4,7 @@
   NODE_VERSION = "22.21.1"
 
 [build]
-  command = "nuxt build"
-  publish = ".output/public"
-  functions = ".output/server"
+  command = "nuxt generate"
   NODE_VERSION = "22.21.1"
 
 [images]

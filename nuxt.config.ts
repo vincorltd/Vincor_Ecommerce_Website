@@ -19,16 +19,14 @@ export default defineNuxtConfig({
       concurrency: 10,
       interval: 1000,
       failOnError: false,
+      // API routes are excluded - they will be deployed as Netlify Functions
+      ignore: ['/api/**']
     },
     routeRules: {
       '/wp-admin/': { redirect: 'https://satchart.com/wp-admin/' },
       // API routes should NOT be prerendered - they are serverless functions
       '/api/**': { cors: true, index: false, headers: { 'Cache-Control': 's-maxage=0' } },
       '/api/sitemap-urls': { cors: true, index: false },
-    },
-    prerender: {
-      // API routes are excluded - they will be deployed as Netlify Functions
-      ignore: ['/api/**']
     },
   },
 
