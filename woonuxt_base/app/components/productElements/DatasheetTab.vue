@@ -5,40 +5,98 @@ const props = defineProps<{
   product: Product
 }>();
 
-// Computed property for the direct PDF URL
+// Datasheet metadata from API
+const datasheetMetadata = ref<any>(null);
+const fetchingDatasheet = ref(true);
+const datasheetFetchError = ref<string | null>(null);
+
+// Fetch datasheet metadata on mount (client-side only for now)
+onMounted(async () => {
+  if (!props.product?.databaseId) {
+    console.error('[DatasheetTab] ❌ No product database ID available');
+    fetchingDatasheet.value = false;
+    return;
+  }
+
+  console.log('[DatasheetTab] 🔍 Fetching datasheet metadata for product:', props.product.databaseId);
+  
+  try {
+    const metadata = await $fetch(`/api/products/${props.product.databaseId}/datasheet`);
+    datasheetMetadata.value = metadata;
+    console.log('[DatasheetTab] ✅ Datasheet metadata fetched:', metadata);
+  } catch (error: any) {
+    console.error('[DatasheetTab] ❌ Failed to fetch datasheet metadata:', error);
+    datasheetFetchError.value = error.message || 'Failed to load datasheet metadata';
+  } finally {
+    fetchingDatasheet.value = false;
+  }
+});
+
+// Computed property for the PDF URL (priority: API > fallback to SKU-based)
 const pdfUrl = computed(() => {
-  const sku = props.product.sku;
-  return `https://satchart.com/pdf/${sku}.pdf`;
+  // If we have a datasheet URL from the API, use it
+  if (datasheetMetadata.value?.datasheetUrl) {
+    console.log('[DatasheetTab] 📄 Using API datasheet URL:', datasheetMetadata.value.datasheetUrl);
+    return datasheetMetadata.value.datasheetUrl;
+  }
+  
+  // Fallback to SKU-based URL (legacy behavior)
+  if (props.product?.sku) {
+    console.log('[DatasheetTab] 📄 Falling back to SKU-based URL for:', props.product.sku);
+    return `https://satchart.com/pdf/${props.product.sku}.pdf`;
+  }
+  
+  return null;
 });
 
 // Use proxy by default to avoid CORS issues and faster loading
 const finalPdfUrl = computed(() => {
+  if (!pdfUrl.value) return null;
   // Always use proxy for reliable, fast loading without CORS issues
   return `/api/pdf-proxy?url=${encodeURIComponent(pdfUrl.value)}`;
 });
 
-// Client-side only refs (initialized in onMounted)
+// Client-side only refs (initialized after datasheet URL is fetched)
 const pdf = ref<any>(null);
 const pages = ref<number[]>([]);
 const info = ref<any>(null);
 const VuePDFComponent = ref<any>(null);
 
-// Track loading state
-const isLoading = ref(true);
-const hasError = ref(false);
-const errorMessage = ref('');
+// Track PDF loading state (separate from datasheet metadata fetching)
+const isPdfLoading = ref(false);
+const hasPdfError = ref(false);
+const pdfErrorMessage = ref('');
 
-// Initialize PDF viewer on client-side only
-onMounted(async () => {
-  // Dynamically import VuePDF only on client-side (SSR compatibility)
+// Combined loading state for UI
+const isLoading = computed(() => fetchingDatasheet.value || isPdfLoading.value);
+const hasError = computed(() => !!datasheetFetchError.value || hasPdfError.value);
+const errorMessage = computed(() => {
+  if (datasheetFetchError.value) return datasheetFetchError.value;
+  if (pdfErrorMessage.value) return pdfErrorMessage.value;
+  return '';
+});
+
+// Initialize PDF viewer after datasheet URL is available
+const initializePdfViewer = async () => {
+  if (!finalPdfUrl.value) {
+    console.warn('[DatasheetTab] ⚠️ No PDF URL available');
+    hasPdfError.value = true;
+    pdfErrorMessage.value = 'No datasheet available for this product';
+    return;
+  }
+
+  isPdfLoading.value = true;
+  hasPdfError.value = false;
+  pdfErrorMessage.value = '';
+
   try {
-    // Import VuePDF component and usePDF composable
+    // Dynamically import VuePDF only on client-side (SSR compatibility)
     const { VuePDF, usePDF } = await import('@tato30/vue-pdf');
     
     // Set the component reference
     VuePDFComponent.value = VuePDF;
     
-    console.log('[DatasheetTab] Loading PDF:', finalPdfUrl.value);
+    console.log('[DatasheetTab] 📄 Loading PDF:', finalPdfUrl.value);
     
     // Initialize PDF with usePDF composable
     const pdfData = usePDF(finalPdfUrl.value);
@@ -55,31 +113,39 @@ onMounted(async () => {
         pdf.value = newPdf;
         pages.value = pdfData.pages.value;
         info.value = pdfData.info.value;
-        isLoading.value = false;
-        hasError.value = false;
+        isPdfLoading.value = false;
+        hasPdfError.value = false;
       }
     }, { immediate: true });
     
     // Handle case where PDF fails to load (10 second timeout for proxy)
     setTimeout(() => {
-      if (!pdf.value && isLoading.value) {
+      if (!pdf.value && isPdfLoading.value) {
         console.error('[DatasheetTab] ⏱️ PDF load timeout');
-        handleError(new Error('PDF load timeout after 10 seconds'));
+        handlePdfError(new Error('PDF load timeout after 10 seconds'));
       }
     }, 10000); // 10 second timeout
     
   } catch (error) {
-    console.error('[DatasheetTab] Failed to initialize PDF viewer:', error);
-    handleError(error);
+    console.error('[DatasheetTab] ❌ Failed to initialize PDF viewer:', error);
+    handlePdfError(error);
   }
-});
+};
+
+// Watch for finalPdfUrl changes and initialize viewer when URL becomes available
+watch(finalPdfUrl, (newUrl) => {
+  if (newUrl && process.client && !fetchingDatasheet.value) {
+    console.log('[DatasheetTab] 🔄 PDF URL available, initializing viewer...');
+    initializePdfViewer();
+  }
+}, { immediate: true });
 
 // Handle PDF load errors
-const handleError = (error?: any) => {
-  console.error('[DatasheetTab] PDF load error:', error);
-  isLoading.value = false;
-  hasError.value = true;
-  errorMessage.value = 'Unable to load the PDF datasheet. The file may not exist.';
+const handlePdfError = (error?: any) => {
+  console.error('[DatasheetTab] ❌ PDF load error:', error);
+  isPdfLoading.value = false;
+  hasPdfError.value = true;
+  pdfErrorMessage.value = 'Unable to load the PDF datasheet. The file may not exist or is not accessible.';
 };
 </script>
 
@@ -96,15 +162,40 @@ const handleError = (error?: any) => {
       </div>
     </div>
 
-    <!-- Error State -->
+    <!-- Error State / No Datasheet Available -->
     <div v-else-if="hasError" class="flex items-center justify-center py-20">
       <div class="text-center max-w-md">
-        <svg class="h-12 w-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Different icon for "no datasheet" vs "error loading" -->
+        <svg 
+          v-if="!datasheetMetadata?.hasDatasheet && !datasheetFetchError" 
+          class="h-12 w-12 text-gray-400 mx-auto mb-4" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <svg 
+          v-else 
+          class="h-12 w-12 text-red-500 mx-auto mb-4" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        <p class="text-gray-600 mb-2">{{ errorMessage }}</p>
-        <p class="text-sm text-gray-500">SKU: {{ product.sku }}</p>
+        
+        <p class="text-gray-600 mb-2 font-medium">
+          {{ !datasheetMetadata?.hasDatasheet && !datasheetFetchError ? 'No Datasheet Available' : errorMessage }}
+        </p>
+        <p class="text-sm text-gray-500">
+          Product: {{ product.name }}<br>
+          SKU: {{ product.sku }}
+        </p>
+        
+        <!-- Only show "try opening" link if we have a fallback URL -->
         <a 
+          v-if="pdfUrl" 
           :href="pdfUrl" 
           target="_blank" 
           rel="noopener noreferrer"
@@ -119,7 +210,7 @@ const handleError = (error?: any) => {
     <div v-else-if="pdf" class="pdf-content">
       <!-- PDF Info -->
       <div v-if="info" class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between text-sm">
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
           <span class="text-gray-600">
             <strong>Pages:</strong> {{ pages.length }}
           </span>

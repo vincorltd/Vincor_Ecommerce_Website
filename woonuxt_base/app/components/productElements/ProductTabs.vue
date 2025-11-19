@@ -11,7 +11,6 @@
         {{ post.title }}
       </button>
       <button
-        v-if="hasShowPdfTag"
         type="button"
         :class="show === tabPosts.length ? 'active' : ''"
         @click.prevent="showTab(tabPosts.length)"
@@ -21,7 +20,7 @@
     </nav>
     <div class="tab-contents">
       <div v-if="show < tabPosts.length" class="font-light mt-8 prose" v-html="activeTab" />
-      <DatasheetTab v-else-if="hasShowPdfTag" :product="product" />
+      <DatasheetTab v-else :product="product" :key="`datasheet-${product.databaseId}`" />
     </div>
   </div>
 </template>
@@ -42,11 +41,6 @@ const props = defineProps<Props>();
 const posts = ref([]);
 const activeTab = ref('');
 const show = ref(0);
-
-// Computed property to check for the specific tag "show-pdf"
-const hasShowPdfTag = computed(() => {
-  return props.product.productTags?.nodes.some(tag => tag.name === 'show-pdf') || false;
-});
 
 const fetchPosts = async (after = null) => {
   const response = await fetch('https://satchart.com/graphql', {
