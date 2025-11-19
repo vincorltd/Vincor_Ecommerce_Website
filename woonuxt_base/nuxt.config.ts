@@ -46,6 +46,7 @@ export default defineNuxtConfig({
   // Vite configuration for @tato30/vue-pdf compatibility
   vite: {
     optimizeDeps: {
+      include: ['@tato30/vue-pdf'],
       esbuildOptions: {
         supported: {
           'top-level-await': true,
@@ -56,6 +57,14 @@ export default defineNuxtConfig({
       supported: {
         'top-level-await': true,
       },
+    },
+    build: {
+      rollupOptions: {
+        external: [],
+      },
+    },
+    ssr: {
+      noExternal: ['@tato30/vue-pdf'],
     },
   },
 
