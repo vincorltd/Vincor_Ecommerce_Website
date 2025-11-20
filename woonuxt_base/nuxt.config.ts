@@ -60,64 +60,13 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ['@pinia/nuxt', 'woonuxt-settings', 'nuxt-graphql-client', '@nuxtjs/tailwindcss', '@nuxt/icon', 
+  modules: ['@pinia/nuxt', 'woonuxt-settings', '@nuxtjs/tailwindcss', '@nuxt/icon', 
     
     '@nuxt/image', '@nuxtjs/i18n', '@nuxtjs/sitemap'],
 
   // Configure Pinia stores directory
   pinia: {
     storesDirs: ['./app/stores'],
-  },
-
-  'graphql-client': {
-    clients: {
-      default: {
-        host: process.env.GQL_HOST || 'https://satchart.com/graphql',
-        corsOptions: { 
-          mode: 'cors', 
-          credentials: 'include'
-        },
-        headers: () => {
-          const hostname = process.client ? window.location.hostname : 
-            process.env.NETLIFY_URL || 'vincor.com';
-          
-          console.log('Debug - GraphQL Client Config:', {
-            hostname,
-            gqlHost: process.env.GQL_HOST,
-            netlifyUrl: process.env.NETLIFY_URL,
-            nodeEnv: process.env.NODE_ENV,
-            origin: `https://${hostname}`
-          });
-          
-          return {
-            'Origin': `https://${hostname}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-Debug-Environment': process.env.NODE_ENV || 'unknown',
-            'X-Host-Name': hostname,
-            'Referer': `https://${hostname}`
-          };
-        },
-        onRequest: (config) => {
-          console.log('Debug - GraphQL Request:', {
-            url: config.url,
-            method: config.method,
-            headers: config.headers,
-            body: config.body
-          });
-        },
-        onRequestError: (error) => {
-          console.error('Debug - GraphQL Request Error:', {
-            message: error.message,
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            headers: error.response?.headers,
-            data: error.response?.data
-          });
-        }
-      },
-    },
   },
 
   image: {
@@ -130,7 +79,6 @@ export default defineNuxtConfig({
 
   alias: {
     '#constants': resolve('./app/constants'),
-    '#woo': '../.nuxt/gql/default',
     '#services': resolve('./app/services'),
   },
 

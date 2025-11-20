@@ -46,14 +46,12 @@ async function addComment() {
   };
   try {
     isPending.value = true;
-    await GqlWriteReview(variables);
-    successMessage.value = 'Your review is awaiting approval';
-    setTimeout(() => {
-      successMessage.value = '';
-      show.value = false;
-    }, 4000);
+    // TODO: Implement REST API review submission endpoint
+    // await GqlWriteReview(variables);
+    console.warn('Review submission not yet implemented with REST API');
+    errorMessage.value = 'Review submission is currently unavailable. Please try again later.';
   } catch (error) {
-    errorMessage.value = error?.gqlErrors?.[0].message;
+    errorMessage.value = error?.message || 'Failed to submit review';
     setTimeout(() => {
       errorMessage.value = '';
     }, 5000);

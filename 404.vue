@@ -1,18 +1,6 @@
 <script lang="ts" setup>
-import { ProductsOrderByEnum } from '#woo';
 const error = useError();
 const { siteName } = useAppConfig();
-
-// Fetch popular products
-const { data: productData } = await useAsyncGql('getProducts', { 
-  first: 4, 
-  orderby: ProductsOrderByEnum.POPULARITY 
-});
-const popularProducts = productData.value?.products?.nodes || [];
-
-// Fetch featured categories
-const { data } = await useAsyncGql('getProductCategories', { first: 4 });
-const productCategories = data.value?.productCategories?.nodes || [];
 
 // Handle the clear error and return to home
 const handleError = () => {
@@ -49,35 +37,40 @@ useHead({
       </div>
     </div>
 
-    <!-- Popular Products Section -->
-    <section v-if="popularProducts.length" class="mb-16">
+    <!-- Quick Links Section -->
+    <section class="mb-16">
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-gray-800">Popular Products</h2>
-        <NuxtLink class="text-blue-600 hover:underline" to="/products">
-          {{ $t('messages.general.viewAll') }}
-        </NuxtLink>
-      </div>
-      <ProductRow 
-        :products="popularProducts" 
-        class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6" 
-      />
-    </section>
-
-    <!-- Categories Section -->
-    <section v-if="productCategories.length">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-gray-800">Browse Categories</h2>
-        <NuxtLink class="text-blue-600 hover:underline" to="/categories">
-          {{ $t('messages.general.viewAll') }}
-        </NuxtLink>
+        <h2 class="text-2xl font-bold text-gray-800">Quick Links</h2>
       </div>
       <div class="grid grid-cols-2 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <CategoryCard 
-          v-for="category in productCategories" 
-          :key="category.id" 
-          :node="category" 
-          class="w-full bg-white shadow-md rounded-lg overflow-hidden" 
-        />
+        <NuxtLink 
+          to="/products" 
+          class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-center"
+        >
+          <div class="text-4xl mb-2">🛍️</div>
+          <h3 class="font-semibold text-gray-800">All Products</h3>
+        </NuxtLink>
+        <NuxtLink 
+          to="/categories" 
+          class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-center"
+        >
+          <div class="text-4xl mb-2">📂</div>
+          <h3 class="font-semibold text-gray-800">Categories</h3>
+        </NuxtLink>
+        <NuxtLink 
+          to="/about-us" 
+          class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-center"
+        >
+          <div class="text-4xl mb-2">ℹ️</div>
+          <h3 class="font-semibold text-gray-800">About Us</h3>
+        </NuxtLink>
+        <NuxtLink 
+          to="/contact" 
+          class="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow text-center"
+        >
+          <div class="text-4xl mb-2">📞</div>
+          <h3 class="font-semibold text-gray-800">Contact</h3>
+        </NuxtLink>
       </div>
     </section>
   </main>

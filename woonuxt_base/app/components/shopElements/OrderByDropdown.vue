@@ -17,7 +17,7 @@ watch([orderby, order], () => {
       class="relative inline-flex items-center p-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 focus:z-20"
       aria-label="Sort"
       @click="order = order === 'ASC' ? 'DESC' : 'ASC'">
-      <Icon name="ion:filter-outline" size="18" :class="order === 'ASC' ? 'rotate-180' : ''" class="transition-transform transform transform-origin-center" />
+      <Icon name="ion:swap-vertical-outline" size="18" :class="order === 'ASC' ? 'rotate-180' : ''" class="transition-transform transform transform-origin-center" />
     </button>
     <select id="orderby-dropdown" v-model="orderby" class="bg-white rounded-l-none" aria-label="Order by">
       <option value="date">{{ $t('messages.general.latest') }}</option>

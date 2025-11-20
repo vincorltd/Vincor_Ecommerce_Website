@@ -180,18 +180,6 @@ export function useHelpers() {
   };
 
   /**
-   *  Logs a GraphQL error message. Only show logs in development or when the 'debug' query parameter is present.
-   * @param error
-   */
-  const logGQLError = (error: any) => {
-    if (!isDev && !route.query.debug) return;
-    const errorMessage = error?.gqlErrors?.[0]?.message;
-    if (errorMessage) {
-      console.error(errorMessage);
-    }
-  };
-
-  /**
    * Get domain from URL
    * @param {string} url - The URL to get the domain from.
    * @returns {string} The domain.
@@ -228,7 +216,6 @@ export function useHelpers() {
     scrollToTop,
     stripHtml,
     debounce,
-    logGQLError,
     getDomain,
   };
 }

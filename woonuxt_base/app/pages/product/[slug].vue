@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { StockStatusEnum, ProductTypesEnum, type AddToCartInput } from '#woo';
+import { StockStatusEnum, ProductTypesEnum } from '~/types/enums';
 import type { SelectedAddon } from '~/services/api/types';
 import { useProductStore } from '~/stores/product';
 

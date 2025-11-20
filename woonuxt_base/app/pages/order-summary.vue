@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { OrderStatusEnum } from '#woo';
+import { OrderStatusEnum } from '~/types/enums';
 import { ordersService } from '~/services/woocommerce/orders.service';
 
 const { query, params, name } = useRoute();

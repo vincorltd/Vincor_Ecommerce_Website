@@ -8,11 +8,11 @@ const { regularPrice, salePrice } = defineProps<ProductPriceProps>();
 </script>
 
 <template>
-  <div v-if="regularPrice || salePrice" class="flex font-semibold">
-    <span :class="{ 'text-gray-400 line-through font-normal': salePrice }" v-html="regularPrice" />
-    <span v-if="salePrice" class="ml-2" v-html="salePrice" />
+  <div v-if="regularPrice || salePrice" class="flex font-bold items-center">
+    <span :class="{ 'text-gray-400 line-through font-normal text-sm mr-1': salePrice }" v-html="regularPrice" />
+    <span v-if="salePrice" class="text-red-600" v-html="salePrice" />
   </div>
-  <div v-else class="flex font-semibold">
+  <div v-else class="text-primary font-medium text-sm hover:underline">
     View Product Details
   </div>
 </template>

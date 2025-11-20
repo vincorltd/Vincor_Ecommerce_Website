@@ -11,7 +11,7 @@ import type {
   ProductAddon,
   WooProductAttribute,
 } from '../api/types';
-import type { Product, Variation, StockStatusEnum, ProductTypesEnum } from '#gql';
+import { StockStatusEnum, ProductTypesEnum } from '~/types/enums';
 
 /**
  * Transform WooCommerce REST API product to GraphQL Product structure

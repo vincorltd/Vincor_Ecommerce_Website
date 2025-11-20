@@ -54,8 +54,8 @@ const imgHeight = Math.round(imgWidth * 1); // Make it square 1:1 ratio
         />
       </div>
       <div class="p-3">
-        <h2 class="mb-2 text-sm font-medium leading-tight line-clamp-2 group-hover:text-primary">{{ node.name }}</h2>
-        <ProductPrice class="text-sm font-semibold" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
+        <h2 class="mb-2 text-base font-medium leading-tight line-clamp-2 group-hover:text-primary text-gray-800">{{ node.name }}</h2>
+        <ProductPrice class="text-lg font-bold text-gray-900" :sale-price="node.salePrice" :regular-price="node.regularPrice" />
       </div>
     </NuxtLink>
   </div>
