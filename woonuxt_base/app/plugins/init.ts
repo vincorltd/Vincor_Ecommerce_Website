@@ -28,22 +28,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       cookieValue: sessionToken.value
     });
 
-    if (sessionToken.value) {
-      const headers = {
-        'woocommerce-session': `Session ${sessionToken.value}`,
-        'X-WP-Nonce': document.querySelector('meta[name="x-wp-nonce"]')?.getAttribute('content') || '',
-      };
-      console.log('Debug - Setting GQL Headers:', headers);
-      useGqlHeaders(headers);
-    }
-
-    useGqlError((err: any) => {
-      console.error('Debug - GraphQL Error:', {
-        message: err?.gqlErrors?.[0]?.message,
-        fullError: err
-      });
-    });
-
     // Wait for the user to interact with the page before refreshing the cart, this is helpful to prevent excessive requests to the server
     let initialised = false;
     const eventsToFireOn = ['mousedown', 'keydown', 'touchstart', 'scroll', 'wheel', 'click', 'resize', 'mousemove', 'mouseover'];

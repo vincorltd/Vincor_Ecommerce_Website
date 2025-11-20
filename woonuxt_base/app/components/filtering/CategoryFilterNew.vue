@@ -10,6 +10,8 @@ interface Category {
   children: Category[];
 }
 
+import { useProductsStore } from '~/stores/products';
+
 const props = defineProps({
   open: { type: Boolean, default: true },
 });
@@ -18,18 +20,102 @@ const emit = defineEmits(['filter-selected']);
 
 const isOpen = ref(props.open);
 const { getFilter, setFilter } = useFiltering();
-const { updateProductList } = useProducts(); // Add this for immediate filtering
+const { updateProductList } = useProducts(); 
 const selectedTerms = ref<string[]>(getFilter('category') || []);
 const categorySearch = ref('');
 const isExpanded = ref(false);
 const router = useRouter();
 
-// Import categories from static JSON file (INSTANT, NO ASYNC!)
-const allCategories = ref<Category[]>(categoriesData.categories || []);
+const { isSearchActive, searchProducts } = useSearching();
+const runtimeConfig = useRuntimeConfig();
+const productsStore = useProductsStore();
+
+// Import categories from static JSON file
+const staticCategories = ref<Category[]>(categoriesData.categories || []);
 const lastUpdated = categoriesData.lastUpdated || '';
 
-console.log('⚡ [CategoryFilterNew] Loaded from static JSON:', allCategories.value.length, 'categories');
-console.log('📅 [CategoryFilterNew] Last updated:', lastUpdated);
+console.log('⚡ [CategoryFilterNew] Loaded from static JSON:', staticCategories.value.length, 'categories');
+
+// Dynamically calculate counts based on loaded products to match search results
+const allCategories = computed(() => {
+  // Use the static categories as base structure
+  const cats = staticCategories.value;
+  // Use all products (unfiltered) to calculate global category counts
+  let allProds = productsStore.allProducts;
+  
+  if (!allProds.length || !cats.length) return cats;
+
+  // 1. Apply Search
+  if (isSearchActive.value) {
+    allProds = searchProducts(allProds);
+  }
+
+  // 2. Apply Filters (Except Category)
+  allProds = allProds.filter(product => {
+      // Price Filter
+      const priceRange = getFilter('price') || [];
+      const productPrice = product.rawPrice ? parseFloat([...product.rawPrice.split(',')].reduce((a, b) => String(Math.max(Number(a), Number(b))))) : 0;
+      const priceCondition = priceRange.length
+        ? productPrice >= parseFloat(priceRange[0] as string) && productPrice <= parseFloat(priceRange[1] as string)
+        : true;
+
+      // Rating Filter
+      const starRating = getFilter('rating') || [];
+      const ratingCondition = starRating.length ? (product?.averageRating || 0) >= parseFloat(starRating[0] as string) : true;
+
+      // Attributes Filter
+      const globalProductAttributes = runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES?.map((attribute: any) => attribute.slug) || [];
+      const attributeCondition = globalProductAttributes
+        .map((attribute: string) => {
+          const attributeValues = getFilter(attribute) || [];
+          if (!attributeValues.length) return true;
+          return product.terms?.nodes?.find((node: any) => node.taxonomyName === attribute && attributeValues.includes(node.slug));
+        })
+        .every((condition: any) => condition);
+
+      // OnSale Filter
+      const onSale = getFilter('sale');
+      const saleItemsOnlyCondition = onSale.length ? product.onSale : true;
+
+      // Brand Filter
+      const brand = getFilter('brand') || [];
+      const brandCondition = brand.length
+        ? product.productTags?.nodes?.some(tag => 
+            brand.includes(tag.name.toLowerCase())
+          )
+        : true;
+
+      return ratingCondition && 
+             priceCondition && 
+             attributeCondition && 
+             saleItemsOnlyCondition && 
+             brandCondition;
+  });
+  
+  // Count products per category slug
+  const counts = new Map<string, number>();
+  
+  allProds.forEach(p => {
+    // Check if product is visible
+    p.productCategories?.nodes?.forEach(c => {
+       if(c.slug) counts.set(c.slug, (counts.get(c.slug) || 0) + 1);
+    });
+  });
+  
+  // Helper to map categories recursively
+  const mapCategory = (category: Category): Category => {
+     // Use calculated count if available, otherwise fallback to API count
+     const realCount = counts.get(category.slug);
+     
+     return {
+        ...category,
+        count: realCount !== undefined ? realCount : 0,
+        children: category.children?.map(mapCategory) || []
+     };
+  };
+  
+  return cats.map(mapCategory);
+});
 
 // Search filtering
 const filteredCategories = computed(() => {

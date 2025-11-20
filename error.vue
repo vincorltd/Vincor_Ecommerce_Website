@@ -1,18 +1,6 @@
 <script lang="ts" setup>
-import { ProductsOrderByEnum } from '#woo';
 const error = useError();
 const { siteName } = useAppConfig();
-
-// Fetch popular products
-const { data: productData } = await useAsyncGql('getProducts', { 
-  first: 4,
-  orderby: ProductsOrderByEnum.POPULARITY 
-});
-const popularProducts = productData.value?.products?.nodes || [];
-
-// Fetch featured products
-const { data: featuredProductData } = await useAsyncGql('getFeaturedProducts', { first: 4 });
-const featuredProducts = featuredProductData.value?.products?.nodes || [];
 
 // Handle the clear error and return to home
 const handleError = () => {
@@ -20,7 +8,7 @@ const handleError = () => {
 };
 
 useHead({
-  title: `Page Not Found | ${siteName}`,
+  title: `Error | ${siteName}`,
 });
 </script>
 
@@ -52,32 +40,13 @@ useHead({
         </div>
       </div>
 
-      <!-- Popular Products Section -->
-      <section v-if="popularProducts.length" class="mb-16">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">Popular Products</h2>
-          <NuxtLink class="text-blue-600 hover:underline" to="/products">
-            {{ $t('messages.general.viewAll') }}
-          </NuxtLink>
+      <!-- Error Details -->
+      <section v-if="error" class="mb-16 text-center">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-6 max-w-2xl mx-auto">
+          <h3 class="text-lg font-semibold text-red-800 mb-2">Error Details</h3>
+          <p class="text-red-600">{{ error.message || 'An unexpected error occurred' }}</p>
+          <p v-if="error.statusCode" class="text-sm text-red-500 mt-2">Status Code: {{ error.statusCode }}</p>
         </div>
-        <ProductRow 
-          :products="popularProducts" 
-          class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6" 
-        />
-      </section>
-
-      <!-- Featured Products Section -->
-      <section v-if="featuredProducts?.length" class="mb-16">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-2xl font-bold text-gray-800">Featured Products</h2>
-          <NuxtLink class="text-blue-600 hover:underline" to="/products">
-            {{ $t('messages.general.viewAll') }}
-          </NuxtLink>
-        </div>
-        <ProductRow 
-          :products="featuredProducts" 
-          class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6" 
-        />
       </section>
     </main>
 

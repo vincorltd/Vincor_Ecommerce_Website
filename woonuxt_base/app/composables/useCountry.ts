@@ -1,5 +1,7 @@
-import type { CountriesEnum } from '#gql/default';
 import { countries } from '#constants';
+
+// Simple type for country codes
+type CountriesEnum = string;
 
 export const useCountry = () => {
     // State to store allowed countries
@@ -13,7 +15,7 @@ export const useCountry = () => {
     const countryStatesDict = useState<{ [code: string]: GeoLocation[] }>('countryStatesDict', () => ({}));
     const isLoadingCountryStates = useState<{ [code: string]: boolean }>('isLoadingCountryStates', () => ({}));
 
-    // Function to get allowed countries from API
+    // Function to get allowed countries from API (currently disabled, returns all countries)
     async function getAllowedCountries() {
         if (allowedCountries.value || isLoadingAllowedCountries.value) {
             return;
@@ -22,18 +24,10 @@ export const useCountry = () => {
         isLoadingAllowedCountries.value = true;
 
         try {
-            const response = await GqlGetAllowedCountries();
-            if (response.allowedCountries) {
-                // Filter out null values and store the result
-                allowedCountries.value = response.allowedCountries.filter(
-                    (country): country is CountriesEnum => country !== null
-                );
-
-                // Filter countries to show based on allowed countries
-                countriesToShow.value = countries.filter(
-                    (country) => allowedCountries.value?.includes(country.code as CountriesEnum)
-                );
-            }
+            // TODO: Replace with REST API call when needed
+            // For now, allow all countries
+            allowedCountries.value = countries.map(c => c.code);
+            countriesToShow.value = countries;
         } catch (error) {
             console.error('Failed to retrieve allowed countries', error);
         } finally {
@@ -50,10 +44,9 @@ export const useCountry = () => {
         isLoadingCountryStates.value[countryCode] = true;
 
         try {
-            const { countryStates } = await GqlGetStates({ country: countryCode });
-            if (countryStates) {
-                countryStatesDict.value[countryCode] = countryStates as GeoLocation[];
-            }
+            // TODO: Replace with REST API call when needed
+            // For now, return empty array
+            countryStatesDict.value[countryCode] = [];
         } catch (error) {
             console.error(`Failed to retrieve states for country ${countryCode}`, error);
         } finally {

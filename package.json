@@ -41,7 +41,6 @@
     "@tailwindcss/typography": "^0.5.19",
     "dotenv": "^17.2.3",
     "nuxt": "^4.2.0",
-    "nuxt-graphql-client": "^0.2.46",
     "nuxt-gtag": "^4.1.0",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",

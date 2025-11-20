@@ -195,11 +195,29 @@ export const useProductsStore = defineStore('products', {
         // Get main image (first in images array)
         const mainImage = product.images && product.images.length > 0 ? product.images[0] : null;
         
+        // Helper to check if price is effective zero (treat as null to show "View Product Details")
+        const isPriceZero = (p: any) => {
+          if (!p) return true;
+          const val = parseFloat(p);
+          return isNaN(val) || val === 0;
+        };
+        
         return {
           ...product,
           // Map REST API snake_case to camelCase for compatibility
           menuOrder: product.menu_order,
           featured: product.featured,
+          onSale: product.on_sale,
+          date: product.date_created,
+          averageRating: parseFloat(product.average_rating || '0'),
+          // Price fields for sorting and display
+          regularPrice: !isPriceZero(product.regular_price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.regular_price}</bdi></span>` : null,
+          salePrice: !isPriceZero(product.sale_price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.sale_price}</bdi></span>` : null,
+          price: !isPriceZero(product.price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.price}</bdi></span>` : null,
+          // Raw prices for sorting
+          rawRegularPrice: product.regular_price,
+          rawSalePrice: product.sale_price,
+          rawPrice: product.price,
           productCategories: {
             nodes: product.categories || []
           },
