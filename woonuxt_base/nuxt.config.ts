@@ -43,7 +43,7 @@ export default defineNuxtConfig({
     port: 3000
   },
 
-  // Vite configuration for @tato30/vue-pdf compatibility
+  // Vite configuration
   vite: {
     optimizeDeps: {
       include: ['@tato30/vue-pdf'],
@@ -57,14 +57,6 @@ export default defineNuxtConfig({
       supported: {
         'top-level-await': true,
       },
-    },
-    build: {
-      rollupOptions: {
-        external: [],
-      },
-    },
-    ssr: {
-      noExternal: ['@tato30/vue-pdf'],
     },
   },
 
@@ -160,10 +152,16 @@ export default defineNuxtConfig({
     preset: 'netlify_edge',
     routeRules: {
       '/': { prerender: true },
-      '/products': { prerender: true, swr: 3600 },  // Pre-render + SWR cache
+      '/about-us': { prerender: true },
+      '/contact': { prerender: true },
+      '/field-service': { prerender: true },
+      // Don't prerender products listing (too large for build memory)
+      // Use SWR caching instead for fast subsequent loads
+      '/products': { swr: 3600 },                    // SWR cache only, no prerender
       '/products/**': { swr: 3600 },                 // SWR cache for pagination
       '/product/**': { swr: 3600 },                  // SWR cache for product pages
       '/product-category/**': { swr: 3600 },         // SWR cache for categories
+      '/categories': { swr: 3600 },                  // SWR cache for categories page
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
       // API routes should NOT be prerendered - they are serverless functions
@@ -172,13 +170,14 @@ export default defineNuxtConfig({
       '/api/categories': { cors: true, index: false },
     },
     prerender: {
-      // Crawl and pre-render product pages
-      crawlLinks: true,
-      routes: ['/products'],
-      // Don't fail build on 404s (some products may not exist)
+      // Don't crawl links to prevent prerendering all products during build
+      crawlLinks: false,
+      // Only prerender essential static pages
+      routes: ['/', '/about-us', '/contact', '/field-service'],
+      // Don't fail build on 404s
       failOnError: false,
-      // API routes are excluded - they will be deployed as Netlify Functions
-      ignore: ['/api/**']
+      // Exclude dynamic routes and APIs
+      ignore: ['/api/**', '/product/**', '/product-category/**', '/products/**']
     }
   },
 
