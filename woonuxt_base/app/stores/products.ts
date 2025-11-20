@@ -197,6 +197,9 @@ export const useProductsStore = defineStore('products', {
         
         return {
           ...product,
+          // Map REST API snake_case to camelCase for compatibility
+          menuOrder: product.menu_order,
+          featured: product.featured,
           productCategories: {
             nodes: product.categories || []
           },

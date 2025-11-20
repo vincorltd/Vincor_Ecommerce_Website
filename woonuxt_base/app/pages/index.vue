@@ -1,15 +1,79 @@
 <script lang="ts" setup>
-import { ProductsOrderByEnum } from '#woo';
+import { useProductsStore } from '~/stores/products';
+
 const { siteName, description, shortDescription, siteImage } = useAppConfig();
+const productsStore = useProductsStore();
 
-const { data } = await useAsyncGql('getProductCategories', { first: 6 });
-const productCategories = data.value?.productCategories?.nodes || [];
+// Fetch all data in a single call to reduce memory pressure during build
+const { data: homeData } = await useAsyncData(
+  'home-data',
+  async () => {
+    const allProducts = await productsStore.fetchAll();
+    
+    // Extract categories
+    const categoriesMap = new Map();
+    allProducts.forEach((product: any) => {
+      if (product.productCategories?.nodes) {
+        product.productCategories.nodes.forEach((cat: any) => {
+          if (!categoriesMap.has(cat.id)) {
+            categoriesMap.set(cat.id, cat);
+          }
+        });
+      }
+    });
+    
+    const categories = Array.from(categoriesMap.values()).slice(0, 6);
+    
+    // Get popular products (sorted by menu order)
+    const popular = allProducts
+      .filter((p: any) => p.menuOrder !== undefined && p.menuOrder !== null)
+      .sort((a: any, b: any) => (a.menuOrder || 0) - (b.menuOrder || 0))
+      .slice(0, 5);
+    
+    // Get featured products
+    const featured = allProducts
+      .filter((p: any) => p.featured === true)
+      .slice(0, 5);
+    
+    return { categories, popular, featured };
+  },
+  { 
+    server: true,
+    lazy: false,
+    getCachedData: (key) => {
+      if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        const allProducts = productsStore.allProducts;
+        
+        const categoriesMap = new Map();
+        allProducts.forEach((product: any) => {
+          if (product.productCategories?.nodes) {
+            product.productCategories.nodes.forEach((cat: any) => {
+              if (!categoriesMap.has(cat.id)) {
+                categoriesMap.set(cat.id, cat);
+              }
+            });
+          }
+        });
+        
+        return {
+          categories: Array.from(categoriesMap.values()).slice(0, 6),
+          popular: allProducts
+            .filter((p: any) => p.menuOrder !== undefined && p.menuOrder !== null)
+            .sort((a: any, b: any) => (a.menuOrder || 0) - (b.menuOrder || 0))
+            .slice(0, 5),
+          featured: allProducts
+            .filter((p: any) => p.featured === true)
+            .slice(0, 5)
+        };
+      }
+      return undefined;
+    }
+  }
+);
 
-const { data: productData } = await useAsyncGql('getProducts', { first: 5, orderby: ProductsOrderByEnum.POPULARITY });
-const popularProducts = productData.value.products?.nodes || [];
-
-const { data: featuredProductData } = await useAsyncGql('getFeaturedProducts', { first: 5 });
-const featuredProducts = featuredProductData.value?.products?.nodes || [];
+const productCategories = computed(() => homeData.value?.categories || []);
+const popularProducts = computed(() => homeData.value?.popular || []);
+const featuredProducts = computed(() => homeData.value?.featured || []);
 
 useSeoMeta({
   title: `Home | Earth Station Antenna Specialists`,

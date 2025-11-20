@@ -1,13 +1,60 @@
 <script setup lang="ts">
+import { useProductsStore } from '~/stores/products';
+
 const { setProducts, updateProductList } = useProducts();
 const { isQueryEmpty } = useHelpers();
 const { storeSettings } = useAppConfig();
 const route = useRoute();
-const slug = route.params.slug;
+const slug = computed(() => route.params.slug as string);
 
-const { data } = await useAsyncGql('getProducts', { slug });
-const productsInCategory = (data.value?.products?.nodes || []) as Product[];
-setProducts(productsInCategory);
+const productsStore = useProductsStore();
+
+// Fetch products filtered by category slug using REST API
+const { data } = await useAsyncData(
+  () => `category-${slug.value}`,
+  async () => {
+    const allProducts = await productsStore.fetchAll();
+    
+    // Filter products by category slug
+    const filtered = allProducts.filter((product: any) => {
+      if (!product.productCategories?.nodes) return false;
+      return product.productCategories.nodes.some((cat: any) => 
+        cat.slug === slug.value || decodeURIComponent(cat.slug) === slug.value
+      );
+    });
+    
+    console.log(`[Category Page] Found ${filtered.length} products for category: ${slug.value}`);
+    return filtered;
+  },
+  { 
+    server: false,  // Client-side only to reduce build memory for dynamic routes
+    lazy: true,     // Non-blocking load
+    watch: [slug],
+    getCachedData: (key) => {
+      if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        const allProducts = productsStore.allProducts;
+        const filtered = allProducts.filter((product: any) => {
+          if (!product.productCategories?.nodes) return false;
+          return product.productCategories.nodes.some((cat: any) => 
+            cat.slug === slug.value || decodeURIComponent(cat.slug) === slug.value
+          );
+        });
+        console.log(`[Category Page] Using cached products for category: ${slug.value}`);
+        return filtered;
+      }
+      return undefined;
+    }
+  }
+);
+
+const productsInCategory = computed(() => (data.value || []) as Product[]);
+
+// Set products in the old composable (for backwards compatibility)
+watch(productsInCategory, (newProducts) => {
+  if (newProducts) {
+    setProducts(newProducts);
+  }
+}, { immediate: true });
 
 onMounted(() => {
   if (!isQueryEmpty.value) updateProductList();

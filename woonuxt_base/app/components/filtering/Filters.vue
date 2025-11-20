@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TaxonomyEnum } from '#woo';
+import { useProductsStore } from '~/stores/products';
 
 const { isFiltersActive } = useFiltering();
 const { removeBodyClass } = useHelpers();
@@ -8,15 +8,104 @@ const { storeSettings } = useAppConfig();
 
 const { hideCategories } = defineProps({ hideCategories: { type: Boolean, default: false } });
 
+const productsStore = useProductsStore();
 const globalProductAttributes = (runtimeConfig?.public?.GLOBAL_PRODUCT_ATTRIBUTES as WooNuxtFilter[]) || [];
-const taxonomies = globalProductAttributes.map((attr) => attr?.slug?.toUpperCase().replace('_', '')) as TaxonomyEnum[];
-const { data } = await useAsyncGql('getAllTerms', { taxonomies });
-const terms = data.value?.terms?.nodes || [];
 
-const attributesWithTerms = globalProductAttributes.map((attr) => ({ 
-  ...attr, 
-  terms: terms.filter((term) => term.taxonomyName === attr.slug) 
-}));
+// Extract terms from products instead of using GraphQL
+const { data } = await useAsyncData(
+  'filter-terms',
+  async () => {
+    const allProducts = await productsStore.fetchAll();
+    const termsMap = new Map();
+    
+    // Extract unique terms from all products for each attribute
+    allProducts.forEach((product: any) => {
+      // Check if product has attributes
+      if (product.attributes?.nodes) {
+        product.attributes.nodes.forEach((attr: any) => {
+          const attrSlug = attr.name?.toLowerCase().replace(/\s+/g, '-') || '';
+          
+          // Check if this is one of our global attributes
+          const isGlobalAttr = globalProductAttributes.some(
+            globalAttr => globalAttr.slug === attrSlug
+          );
+          
+          if (isGlobalAttr && attr.options) {
+            attr.options.forEach((option: string) => {
+              const termKey = `${attrSlug}-${option}`;
+              if (!termsMap.has(termKey)) {
+                termsMap.set(termKey, {
+                  id: termKey,
+                  name: option,
+                  slug: option.toLowerCase().replace(/\s+/g, '-'),
+                  taxonomyName: attrSlug,
+                  count: 1
+                });
+              } else {
+                // Increment count
+                const term = termsMap.get(termKey);
+                term.count++;
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    return Array.from(termsMap.values());
+  },
+  { 
+    server: false,  // Client-side only to reduce build memory
+    lazy: true,     // Non-blocking load
+    getCachedData: (key) => {
+      if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        const allProducts = productsStore.allProducts;
+        const termsMap = new Map();
+        
+        allProducts.forEach((product: any) => {
+          if (product.attributes?.nodes) {
+            product.attributes.nodes.forEach((attr: any) => {
+              const attrSlug = attr.name?.toLowerCase().replace(/\s+/g, '-') || '';
+              const isGlobalAttr = globalProductAttributes.some(
+                globalAttr => globalAttr.slug === attrSlug
+              );
+              
+              if (isGlobalAttr && attr.options) {
+                attr.options.forEach((option: string) => {
+                  const termKey = `${attrSlug}-${option}`;
+                  if (!termsMap.has(termKey)) {
+                    termsMap.set(termKey, {
+                      id: termKey,
+                      name: option,
+                      slug: option.toLowerCase().replace(/\s+/g, '-'),
+                      taxonomyName: attrSlug,
+                      count: 1
+                    });
+                  } else {
+                    const term = termsMap.get(termKey);
+                    term.count++;
+                  }
+                });
+              }
+            });
+          }
+        });
+        
+        return Array.from(termsMap.values());
+      }
+      return undefined;
+    }
+  }
+);
+
+const terms = computed(() => data.value || []);
+
+const attributesWithTerms = computed(() => 
+  globalProductAttributes.map((attr) => ({ 
+    ...attr, 
+    terms: terms.value.filter((term) => term.taxonomyName === attr.slug) 
+  }))
+);
 
 const closeFilterMenu = () => {
   if (window.innerWidth <= 768) {
