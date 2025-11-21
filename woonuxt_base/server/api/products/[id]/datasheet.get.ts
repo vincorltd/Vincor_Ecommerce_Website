@@ -36,16 +36,29 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    console.log('[Datasheet API] 🔍 Fetching datasheet for product:', productId);
+    // Ensure productId is a number
+    const numericProductId = parseInt(productId, 10);
+    if (isNaN(numericProductId)) {
+      throw createError({
+        statusCode: 400,
+        message: `Invalid product ID: ${productId}`,
+      });
+    }
+
+    console.log('[Datasheet API] 🔍 Fetching datasheet for product ID:', numericProductId);
 
     // Fetch product data including meta_data with cache-busting
+    // Use context=edit to ensure we get all meta_data fields
     const timestamp = Date.now();
-    const fullUrl = `${baseUrl}/wc/v3/products/${productId}?context=view&_=${timestamp}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+    const fullUrl = `${baseUrl}/wc/v3/products/${numericProductId}?context=edit&_=${timestamp}`;
     
-    console.log('[Datasheet API] 🌐 Fetching from WooCommerce:', fullUrl.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+    console.log('[Datasheet API] 🌐 Fetching from WooCommerce:', fullUrl);
     
     const product: any = await $fetch(fullUrl, {
       headers: {
+        'Authorization': `Basic ${Buffer.from(
+          `${consumerKey}:${consumerSecret}`
+        ).toString('base64')}`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
@@ -55,39 +68,106 @@ export default defineEventHandler(async (event) => {
     if (!product) {
       throw createError({
         statusCode: 404,
-        message: `Product not found: ${productId}`,
+        message: `Product not found: ${numericProductId}`,
       });
     }
 
+    // CRITICAL: Validate that the returned product ID matches what we requested
+    if (product.id !== numericProductId) {
+      console.error('[Datasheet API] ❌ PRODUCT ID MISMATCH!', {
+        requested: numericProductId,
+        returned: product.id,
+        productName: product.name,
+        sku: product.sku
+      });
+      throw createError({
+        statusCode: 500,
+        message: `Product ID mismatch: requested ${numericProductId}, got ${product.id}`,
+      });
+    }
+
+    console.log('[Datasheet API] ✅ Product validated:', {
+      id: product.id,
+      name: product.name,
+      sku: product.sku
+    });
+
     // Extract datasheet URL from meta_data
+    // IMPORTANT: Only look for datasheet meta keys that are specific to THIS product
     let datasheetUrl: string | null = null;
     let datasheetId: string | null = null;
 
-    console.log('[Datasheet API] 📊 Product meta_data keys:', product.meta_data?.map((m: any) => m.key) || 'none');
+    console.log('[Datasheet API] 📊 Product meta_data count:', product.meta_data?.length || 0);
+    console.log('[Datasheet API] 📊 All meta_data keys:', product.meta_data?.map((m: any) => m.key) || 'none');
     
     if (product.meta_data && Array.isArray(product.meta_data)) {
+      // Look for datasheet-related meta keys
+      // Try multiple possible key names that might be used by different plugins
+      const possibleKeys = [
+        '_product_datasheet_url',
+        '_datasheet_url',
+        'datasheet_url',
+        '_product_datasheet',
+        '_datasheet',
+        'datasheet'
+      ];
+
+      // Find all datasheet-related meta entries
+      const datasheetMetas = product.meta_data.filter((m: any) => 
+        possibleKeys.includes(m.key)
+      );
+
+      console.log('[Datasheet API] 🔍 Found datasheet meta entries:', datasheetMetas.map((m: any) => ({
+        key: m.key,
+        hasValue: !!m.value,
+        valuePreview: typeof m.value === 'string' ? m.value.substring(0, 50) : String(m.value).substring(0, 50)
+      })));
+
+      // Prefer _product_datasheet_url if it exists
       const urlMeta = product.meta_data.find((m: any) => m.key === '_product_datasheet_url');
       const idMeta = product.meta_data.find((m: any) => m.key === '_product_datasheet_id');
       
-      console.log('[Datasheet API] 🔍 Searching meta_data:', {
-        urlMeta: urlMeta ? { key: urlMeta.key, hasValue: !!urlMeta.value } : null,
-        idMeta: idMeta ? { key: idMeta.key, hasValue: !!idMeta.value } : null
-      });
+      if (urlMeta && urlMeta.value) {
+        datasheetUrl = String(urlMeta.value).trim();
+        console.log('[Datasheet API] ✅ Found datasheet URL from _product_datasheet_url:', datasheetUrl);
+      }
       
-      datasheetUrl = urlMeta?.value || null;
-      datasheetId = idMeta?.value || null;
+      if (idMeta && idMeta.value) {
+        datasheetId = String(idMeta.value).trim();
+        console.log('[Datasheet API] ✅ Found datasheet ID:', datasheetId);
+      }
+
+      // If no URL found, try other keys (but log warning)
+      if (!datasheetUrl && datasheetMetas.length > 0) {
+        const altMeta = datasheetMetas.find((m: any) => m.value && m.key !== '_product_datasheet_id');
+        if (altMeta && altMeta.value) {
+          datasheetUrl = String(altMeta.value).trim();
+          console.warn('[Datasheet API] ⚠️ Using alternative datasheet key:', altMeta.key, 'URL:', datasheetUrl);
+        }
+      }
     }
 
-    // Check if datasheet is available in a direct field (in case plugin exposes it differently)
-    if (!datasheetUrl && product.datasheet_url) {
-      console.log('[Datasheet API] 📄 Found datasheet_url in direct field');
-      datasheetUrl = product.datasheet_url;
-    }
-    
-    // Check for other possible field names
-    if (!datasheetUrl && product.datasheet) {
-      console.log('[Datasheet API] 📄 Found datasheet in direct field');
-      datasheetUrl = product.datasheet;
+    // Validate datasheet URL belongs to this product (if it contains product ID or SKU)
+    if (datasheetUrl) {
+      // Check if URL contains product ID or SKU to ensure it's the right datasheet
+      const urlContainsProductId = datasheetUrl.includes(String(numericProductId));
+      const urlContainsSku = product.sku && datasheetUrl.includes(product.sku);
+      
+      console.log('[Datasheet API] 🔍 Validating datasheet URL:', {
+        url: datasheetUrl,
+        containsProductId: urlContainsProductId,
+        containsSku: urlContainsSku,
+        productSku: product.sku
+      });
+
+      // If URL doesn't contain product ID or SKU, log warning but don't reject (might be valid)
+      if (!urlContainsProductId && !urlContainsSku && product.sku) {
+        console.warn('[Datasheet API] ⚠️ Datasheet URL does not contain product ID or SKU - may be mismatched!', {
+          url: datasheetUrl,
+          productId: numericProductId,
+          sku: product.sku
+        });
+      }
     }
 
     if (datasheetUrl) {
@@ -106,7 +186,8 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    return {
+    // Final validation before returning
+    const response = {
       productId: product.id,
       productName: product.name,
       sku: product.sku,
@@ -114,6 +195,27 @@ export default defineEventHandler(async (event) => {
       datasheetId,
       hasDatasheet: !!datasheetUrl,
     };
+
+    // Log final response for debugging
+    console.log('[Datasheet API] 📤 Returning response:', {
+      productId: response.productId,
+      productName: response.productName,
+      sku: response.sku,
+      hasDatasheet: response.hasDatasheet,
+      datasheetUrl: response.datasheetUrl ? response.datasheetUrl.substring(0, 100) + '...' : null
+    });
+
+    // CRITICAL: Set no-cache headers to prevent Netlify/CDN caching
+    // This ensures each product gets its own datasheet, not a cached one
+    setHeaders(event, {
+      'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'X-Content-Type-Options': 'nosniff',
+      'Vary': 'Accept-Encoding',
+    });
+
+    return response;
   } catch (error: any) {
     console.error('[Datasheet API] ❌ Error:', error);
     

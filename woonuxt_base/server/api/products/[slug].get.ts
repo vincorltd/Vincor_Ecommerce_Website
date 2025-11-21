@@ -83,6 +83,16 @@ export default defineEventHandler(async (event) => {
       modified: product.date_modified || product.modified,
       modified_gmt: product.date_modified_gmt || product.modified_gmt
     });
+
+    // CRITICAL: Set no-cache headers to prevent Netlify/CDN caching
+    // This ensures product data updates immediately when changed in WordPress
+    setHeaders(event, {
+      'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'X-Content-Type-Options': 'nosniff',
+      'Vary': 'Accept-Encoding',
+    });
     
     return product;
   } catch (error: any) {

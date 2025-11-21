@@ -113,7 +113,27 @@ export default defineNuxtConfig({
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
       // API routes should NOT be prerendered - they are serverless functions
-      '/api/**': { cors: true, index: false },
+      // CRITICAL: Set headers to prevent Netlify/CDN caching
+      '/api/**': { 
+        cors: true, 
+        index: false,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      },
+      // Specific rules for datasheet endpoint - must never be cached
+      '/api/products/**/datasheet': {
+        cors: true,
+        index: false,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'X-Content-Type-Options': 'nosniff',
+        }
+      },
       '/api/sitemap-urls': { cors: true, index: false },
       '/api/categories': { cors: true, index: false },
     },

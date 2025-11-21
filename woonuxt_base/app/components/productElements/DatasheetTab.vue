@@ -10,27 +10,93 @@ const datasheetMetadata = ref<any>(null);
 const fetchingDatasheet = ref(true);
 const datasheetFetchError = ref<string | null>(null);
 
-// Fetch datasheet metadata on mount (client-side only for now)
-onMounted(async () => {
+// Function to fetch datasheet metadata
+const fetchDatasheetMetadata = async () => {
   if (!props.product?.databaseId) {
     console.error('[DatasheetTab] ❌ No product database ID available');
     fetchingDatasheet.value = false;
     return;
   }
 
-  console.log('[DatasheetTab] 🔍 Fetching datasheet metadata for product:', props.product.databaseId);
+  // Reset state when fetching new product
+  datasheetMetadata.value = null;
+  datasheetFetchError.value = null;
+  fetchingDatasheet.value = true;
+  pdf.value = null;
+  pages.value = [];
+  info.value = null;
+  hasPdfError.value = false;
+  pdfErrorMessage.value = '';
+
+  const requestedProductId = props.product.databaseId;
+  const requestedSku = props.product.sku;
+  
+  console.log('[DatasheetTab] 🔍 Fetching datasheet metadata for product:', {
+    id: requestedProductId,
+    sku: requestedSku,
+    name: props.product.name
+  });
   
   try {
-    const metadata = await $fetch(`/api/products/${props.product.databaseId}/datasheet`);
+    // Add cache-busting timestamp to prevent Netlify/CDN caching
+    const timestamp = Date.now();
+    const metadata = await $fetch(`/api/products/${requestedProductId}/datasheet?_=${timestamp}`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      }
+    });
+    
+    // CRITICAL: Validate that the returned metadata matches the product we requested
+    if (metadata.productId !== requestedProductId) {
+      console.error('[DatasheetTab] ❌ PRODUCT ID MISMATCH!', {
+        requested: requestedProductId,
+        returned: metadata.productId,
+        requestedSku: requestedSku,
+        returnedSku: metadata.sku
+      });
+      datasheetFetchError.value = `Datasheet mismatch: returned product ID ${metadata.productId} does not match requested ${requestedProductId}`;
+      datasheetMetadata.value = null;
+      return;
+    }
+
+    // Additional validation: check SKU matches if both are available
+    if (requestedSku && metadata.sku && metadata.sku !== requestedSku) {
+      console.warn('[DatasheetTab] ⚠️ SKU mismatch:', {
+        requested: requestedSku,
+        returned: metadata.sku
+      });
+      // Don't fail completely, but log warning
+    }
+    
     datasheetMetadata.value = metadata;
-    console.log('[DatasheetTab] ✅ Datasheet metadata fetched:', metadata);
+    console.log('[DatasheetTab] ✅ Datasheet metadata fetched and validated:', {
+      productId: metadata.productId,
+      sku: metadata.sku,
+      hasDatasheet: metadata.hasDatasheet,
+      datasheetUrl: metadata.datasheetUrl ? metadata.datasheetUrl.substring(0, 50) + '...' : null
+    });
   } catch (error: any) {
     console.error('[DatasheetTab] ❌ Failed to fetch datasheet metadata:', error);
     datasheetFetchError.value = error.message || 'Failed to load datasheet metadata';
+    datasheetMetadata.value = null;
   } finally {
     fetchingDatasheet.value = false;
   }
+};
+
+// Fetch on mount
+onMounted(() => {
+  fetchDatasheetMetadata();
 });
+
+// Watch for product changes and refetch
+watch(() => props.product?.databaseId, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    console.log('[DatasheetTab] 🔄 Product changed, refetching datasheet:', { oldId, newId });
+    fetchDatasheetMetadata();
+  }
+}, { immediate: false });
 
 // Computed property for the PDF URL (priority: API > fallback to SKU-based)
 const pdfUrl = computed(() => {
