@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps<{
   product: Product
@@ -127,6 +127,11 @@ const pdf = ref<any>(null);
 const pages = ref<number[]>([]);
 const info = ref<any>(null);
 const VuePDFComponent = ref<any>(null);
+const currentPdfUrl = ref<string | null>(null); // Track which PDF URL is currently loaded
+const currentProductId = ref<number | null>(null); // Track which product ID this PDF is for
+const pdfDataRef = ref<any>(null); // Keep reference to pdfData for cleanup
+const pdfWatcherStop = ref<(() => void) | null>(null); // Keep reference to watcher for cleanup
+const pdfTimeoutId = ref<NodeJS.Timeout | null>(null); // Keep timeout reference for cleanup
 
 // Track PDF loading state (separate from datasheet metadata fetching)
 const isPdfLoading = ref(false);
@@ -142,15 +147,93 @@ const errorMessage = computed(() => {
   return '';
 });
 
+// CRITICAL: Only show PDF if it matches the current product
+const shouldShowPdf = computed(() => {
+  const matches = pdf.value && 
+                  currentProductId.value === props.product?.databaseId &&
+                  currentPdfUrl.value === finalPdfUrl.value;
+  
+  if (pdf.value && !matches) {
+    console.warn('[DatasheetTab] ⚠️ PDF exists but does not match current product:', {
+      hasPdf: !!pdf.value,
+      currentProductId: currentProductId.value,
+      productId: props.product?.databaseId,
+      currentUrl: currentPdfUrl.value?.substring(0, 50),
+      finalUrl: finalPdfUrl.value?.substring(0, 50)
+    });
+  }
+  
+  return matches;
+});
+
+// Cleanup function to properly dispose of PDF resources
+const cleanupPdf = () => {
+  console.log('[DatasheetTab] 🧹 Cleaning up PDF resources for product:', currentProductId.value);
+  
+  // Stop watcher if active
+  if (pdfWatcherStop.value) {
+    pdfWatcherStop.value();
+    pdfWatcherStop.value = null;
+  }
+  
+  // Clear timeout if active
+  if (pdfTimeoutId.value) {
+    clearTimeout(pdfTimeoutId.value);
+    pdfTimeoutId.value = null;
+  }
+  
+  // Dispose of PDF if possible
+  if (pdfDataRef.value?.pdf?.value?.destroy) {
+    try {
+      pdfDataRef.value.pdf.value.destroy();
+    } catch (e) {
+      console.warn('[DatasheetTab] ⚠️ Error disposing PDF:', e);
+    }
+  }
+  
+  // Clear refs
+  pdf.value = null;
+  pages.value = [];
+  info.value = null;
+  pdfDataRef.value = null;
+  currentPdfUrl.value = null;
+  isPdfLoading.value = false;
+  hasPdfError.value = false;
+  pdfErrorMessage.value = '';
+};
+
 // Initialize PDF viewer after datasheet URL is available
 const initializePdfViewer = async () => {
-  if (!finalPdfUrl.value) {
+  const pdfUrl = finalPdfUrl.value;
+  const productId = props.product?.databaseId;
+  
+  if (!pdfUrl) {
     console.warn('[DatasheetTab] ⚠️ No PDF URL available');
     hasPdfError.value = true;
     pdfErrorMessage.value = 'No datasheet available for this product';
     return;
   }
 
+  // CRITICAL: If we're already loading/loaded this exact PDF for this product, don't reload
+  if (currentPdfUrl.value === pdfUrl && currentProductId.value === productId && pdf.value) {
+    console.log('[DatasheetTab] ⚡ PDF already loaded for this product, skipping');
+    return;
+  }
+
+  // CRITICAL: Clean up previous PDF before loading new one
+  if (currentPdfUrl.value && (currentPdfUrl.value !== pdfUrl || currentProductId.value !== productId)) {
+    console.log('[DatasheetTab] 🔄 PDF URL or product changed, cleaning up previous PDF:', {
+      oldUrl: currentPdfUrl.value?.substring(0, 50),
+      newUrl: pdfUrl.substring(0, 50),
+      oldProductId: currentProductId.value,
+      newProductId: productId
+    });
+    cleanupPdf();
+  }
+
+  // Set current URL and product ID before loading
+  currentPdfUrl.value = pdfUrl;
+  currentProductId.value = productId;
   isPdfLoading.value = true;
   hasPdfError.value = false;
   pdfErrorMessage.value = '';
@@ -162,20 +245,31 @@ const initializePdfViewer = async () => {
     // Set the component reference
     VuePDFComponent.value = VuePDF;
     
-    console.log('[DatasheetTab] 📄 Loading PDF:', finalPdfUrl.value);
+    console.log('[DatasheetTab] 📄 Loading PDF:', {
+      url: pdfUrl.substring(0, 50) + '...',
+      productId: productId,
+      productSku: props.product?.sku
+    });
     
-    // Initialize PDF with usePDF composable
-    const pdfData = usePDF(finalPdfUrl.value);
-    
-    // Assign to our refs
-    pdf.value = pdfData.pdf.value;
-    pages.value = pdfData.pages.value;
-    info.value = pdfData.info.value;
+    // CRITICAL: Create new PDF instance for this URL
+    const pdfData = usePDF(pdfUrl);
+    pdfDataRef.value = pdfData;
     
     // Watch for PDF load completion
-    watch(pdfData.pdf, (newPdf) => {
+    const stopWatcher = watch(pdfData.pdf, (newPdf) => {
+      // CRITICAL: Verify this PDF is still for the current product
+      if (currentProductId.value !== productId || currentPdfUrl.value !== pdfUrl) {
+        console.warn('[DatasheetTab] ⚠️ PDF loaded but product/URL changed, ignoring');
+        return;
+      }
+      
       if (newPdf) {
-        console.log('[DatasheetTab] ✅ PDF loaded successfully via proxy');
+        console.log('[DatasheetTab] ✅ PDF loaded successfully:', {
+          url: pdfUrl.substring(0, 50) + '...',
+          productId: productId,
+          productSku: props.product?.sku,
+          pages: pdfData.pages.value?.length || 0
+        });
         pdf.value = newPdf;
         pages.value = pdfData.pages.value;
         info.value = pdfData.info.value;
@@ -184,13 +278,17 @@ const initializePdfViewer = async () => {
       }
     }, { immediate: true });
     
+    // Store watcher stop function for cleanup
+    pdfWatcherStop.value = stopWatcher;
+    
     // Handle case where PDF fails to load (10 second timeout for proxy)
-    setTimeout(() => {
-      if (!pdf.value && isPdfLoading.value) {
-        console.error('[DatasheetTab] ⏱️ PDF load timeout');
+    pdfTimeoutId.value = setTimeout(() => {
+      // CRITICAL: Only timeout if this is still the current PDF
+      if (currentPdfUrl.value === pdfUrl && currentProductId.value === productId && !pdf.value && isPdfLoading.value) {
+        console.error('[DatasheetTab] ⏱️ PDF load timeout for:', pdfUrl.substring(0, 50));
         handlePdfError(new Error('PDF load timeout after 10 seconds'));
       }
-    }, 10000); // 10 second timeout
+    }, 10000);
     
   } catch (error) {
     console.error('[DatasheetTab] ❌ Failed to initialize PDF viewer:', error);
@@ -199,12 +297,31 @@ const initializePdfViewer = async () => {
 };
 
 // Watch for finalPdfUrl changes and initialize viewer when URL becomes available
-watch(finalPdfUrl, (newUrl) => {
-  if (newUrl && process.client && !fetchingDatasheet.value) {
-    console.log('[DatasheetTab] 🔄 PDF URL available, initializing viewer...');
+watch(finalPdfUrl, (newUrl, oldUrl) => {
+  // CRITICAL: Only initialize if URL actually changed and we're not currently fetching
+  if (newUrl && newUrl !== oldUrl && process.client && !fetchingDatasheet.value) {
+    console.log('[DatasheetTab] 🔄 PDF URL changed, initializing viewer:', {
+      oldUrl: oldUrl?.substring(0, 50),
+      newUrl: newUrl.substring(0, 50),
+      productId: props.product?.databaseId
+    });
     initializePdfViewer();
   }
 }, { immediate: true });
+
+// Watch for product changes - cleanup and reset
+watch(() => props.product?.databaseId, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    console.log('[DatasheetTab] 🔄 Product ID changed, cleaning up PDF:', { oldId, newId });
+    cleanupPdf();
+    currentProductId.value = null; // Reset to force new PDF load
+  }
+});
+
+// Cleanup on unmount
+onBeforeUnmount(() => {
+  cleanupPdf();
+});
 
 // Handle PDF load errors
 const handlePdfError = (error?: any) => {
@@ -273,7 +390,8 @@ const handlePdfError = (error?: any) => {
     </div>
 
     <!-- PDF Display -->
-    <div v-else-if="pdf" class="pdf-content">
+    <!-- CRITICAL: Only show PDF if it matches the current product -->
+    <div v-else-if="shouldShowPdf" class="pdf-content" :key="`pdf-container-${product?.databaseId}`">
       <!-- PDF Info -->
       <div v-if="info" class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between text-sm">
         <div class="flex items-center gap-4 flex-wrap">
@@ -298,12 +416,17 @@ const handlePdfError = (error?: any) => {
       </div>
 
       <!-- PDF Pages - Client Only -->
+      <!-- CRITICAL: Add key based on product ID to force re-render when product changes -->
       <ClientOnly>
-        <div class="pdf-pages bg-white">
+        <div 
+          v-if="pdf && currentProductId === product?.databaseId" 
+          class="pdf-pages bg-white"
+          :key="`pdf-${product?.databaseId}-${currentPdfUrl || 'none'}`"
+        >
           <component
             :is="VuePDFComponent"
             v-for="page in pages" 
-            :key="page"
+            :key="`page-${product?.databaseId}-${page}`"
             :pdf="pdf" 
             :page="page"
             text-layer

@@ -4,8 +4,9 @@ import { useProductsStore } from '~/stores/products';
 const { siteName, description, shortDescription, siteImage } = useAppConfig();
 const productsStore = useProductsStore();
 
-// Fetch all data in a single call to reduce memory pressure during build
-const { data: homeData } = await useAsyncData(
+// Fetch all data - NON-BLOCKING for fast first load
+// Use lazy: true to prevent blocking SSR, which was causing 5-10 second delays
+const { data: homeData, pending: homePending } = await useAsyncData(
   'home-data',
   async () => {
     const allProducts = await productsStore.fetchAll();
@@ -38,8 +39,8 @@ const { data: homeData } = await useAsyncData(
     return { categories, popular, featured };
   },
   { 
-    server: true,
-    lazy: false,
+    server: false,  // Client-side only: prevents blocking SSR, faster first paint
+    lazy: true,     // Non-blocking: page renders immediately, data loads in background
     getCachedData: (key) => {
       if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
         const allProducts = productsStore.allProducts;

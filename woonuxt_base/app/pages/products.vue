@@ -11,31 +11,57 @@ const { isQueryEmpty } = useHelpers();
 const productsStore = useProductsStore();
 
 // Fetch products - Client-side only for speed (uses Pinia cache)
-const { data: allProducts, pending, error } = await useAsyncData(
+// CRITICAL: Ensure we always have data, even if cache is empty
+const { data: allProducts, pending, error, refresh: refreshProducts } = await useAsyncData(
   'all-products',
   async () => {
-    // Force refresh if ?refresh=true query param is present (dev mode)
-    const forceRefresh = process.dev && process.client && route.query.refresh === 'true';
+    // Force refresh if ?refresh=true query param is present
+    const forceRefresh = route.query.refresh === 'true';
     const products = await productsStore.fetchAll(forceRefresh);
-    return products;
+    
+    // CRITICAL: If we got empty array, it might be a real error or cache issue
+    // Log it but don't throw - let the UI handle the empty state
+    if (!products || products.length === 0) {
+      console.warn('[Products Page] ⚠️ No products returned from store');
+    }
+    
+    return products || [];
   },
   {
     server: false,  // Client-side only: fast, prevents build OOM, uses Pinia cache
-    lazy: true,     // Non-blocking with loading state
+    lazy: false,    // BLOCKING: Wait for products before showing page (prevents "no products" flash)
+    default: () => [], // Default to empty array instead of undefined
     getCachedData: (key) => {
-      // Skip cache in dev mode when ?refresh=true query param is present
-      if (process.dev && process.client && route.query.refresh === 'true') {
+      // Skip cache when ?refresh=true query param is present
+      if (process.client && route.query.refresh === 'true') {
         return undefined;
       }
       
       // Check Pinia cache FIRST - will be instant after first load
       if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        console.log('[Products Page] ⚡ Using cached products:', productsStore.allProducts.length);
         return productsStore.allProducts;
       }
+      
+      // If cache exists but expired, still return it (will refresh in background)
+      if (process.client && productsStore.allProducts.length > 0) {
+        console.log('[Products Page] ⏰ Cache expired, using stale data while refreshing');
+        return productsStore.allProducts;
+      }
+      
       return undefined; // First visit: fetch from API
     }
   }
 );
+
+// Watch for route changes and refresh if needed
+watch(() => route.query.refresh, (newVal) => {
+  if (newVal === 'true' && process.client) {
+    console.log('[Products Page] 🔄 Refresh requested, clearing cache and refetching');
+    productsStore.clearAllCache();
+    refreshProducts();
+  }
+});
 
 // Set products in the old composable (for backwards compatibility)
 if (allProducts.value) {
