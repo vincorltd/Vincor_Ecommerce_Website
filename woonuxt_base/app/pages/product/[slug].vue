@@ -979,7 +979,7 @@ useHead(() => ({
         class="my-32"
         :key="`tabs-${product.databaseId}`"
       >
-        <ProductTabs :productSku="product.sku" :product="product" />
+        <ProductTabsNew :productSku="product.sku" :product="product" />
       </div>
 
       <!-- Related Products Section -->

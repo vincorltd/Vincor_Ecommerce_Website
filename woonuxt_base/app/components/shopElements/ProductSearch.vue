@@ -23,7 +23,8 @@ watch(searchQuery, (value) => {
   }
 });
 
-watch(getSearchQuery, (value) => {
+// Watch for external search query changes (e.g., from URL)
+watch(() => getSearchQuery(), (value) => {
   if (!value) reset();
 });
 </script>

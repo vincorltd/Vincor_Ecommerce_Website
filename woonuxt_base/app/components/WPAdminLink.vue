@@ -1,31 +1,48 @@
 <script setup lang="ts">
 const runtimeConfig = useRuntimeConfig();
-const defaultClient = runtimeConfig?.public?.['graphql-client']?.clients?.default as { host: string } | undefined;
+const { viewer } = useAuth();
 
 const { link } = defineProps<{ link: string }>();
 
-const gqlEndpoint = defaultClient?.host ?? null;
-const wpBase = gqlEndpoint?.replace('/graphql', '') ?? null;
-const formattedLink = wpBase + link;
+// Get WordPress base URL from REST API config
+const wpBase = computed(() => {
+  const wooApiUrl = runtimeConfig?.public?.wooApiUrl;
+  if (!wooApiUrl) return null;
+  // Remove /wp-json from the end to get the base URL
+  return wooApiUrl.replace('/wp-json', '');
+});
+
+const formattedLink = computed(() => 
+  wpBase.value ? `${wpBase.value}${link}` : null
+);
+
 const linkStartsWithWpAdmin = link?.startsWith('/wp-admin') || false;
+
+// Check if user is an administrator
+const isAdmin = computed(() => {
+  if (!viewer.value?.roles) return false;
+  return viewer.value.roles.includes('administrator');
+});
+
+// Show link if in dev mode OR user is admin
+const isDev = process.dev;
+const shouldShowLink = computed(() => isDev || isAdmin.value);
 </script>
 
 <template>
-  <DevOnly>
-    <ClientOnly>
-      <a
-        v-if="linkStartsWithWpAdmin && wpBase && link"
-        :href="formattedLink"
-        target="_blank"
-        class="wp-admin-link"
-        title="This is a dev-only link, it will not be visible in production.">
-        <span class="link">
-          <slot />
-        </span>
-        <Icon name="ion:open-outline" size="14" />
-      </a>
-    </ClientOnly>
-  </DevOnly>
+  <ClientOnly>
+    <a
+      v-if="shouldShowLink && linkStartsWithWpAdmin && wpBase && link"
+      :href="formattedLink"
+      target="_blank"
+      class="wp-admin-link"
+      :title="isDev ? 'Edit in WordPress (Dev Mode)' : 'Edit in WordPress (Admin)'">
+      <span class="link">
+        <slot />
+      </span>
+      <Icon name="ion:open-outline" size="14" />
+    </a>
+  </ClientOnly>
 </template>
 
 <style scoped lang="postcss">
