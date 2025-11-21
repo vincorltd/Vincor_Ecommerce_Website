@@ -21,6 +21,7 @@ const tabs = ref<ProductTab[]>([]);
 const activeTab = ref<string>('');
 const loading = ref(true);
 const error = ref('');
+const hasDatasheet = ref(false);
 
 // Special ID for datasheet tab
 const DATASHEET_TAB_ID = 'tab-datasheet-builtin';
@@ -47,18 +48,35 @@ onMounted(async () => {
       }
     }
     
-    // Set first tab as active (or datasheet if no tabs)
+    // Check if product has a datasheet
+    if (props.product?.databaseId) {
+      try {
+        const datasheetMetadata = await $fetch(`/api/products/${props.product.databaseId}/datasheet`);
+        hasDatasheet.value = datasheetMetadata?.hasDatasheet || false;
+        console.log('[ProductTabs] 📄 Datasheet check:', hasDatasheet.value ? 'Available' : 'Not available');
+      } catch (err: any) {
+        console.warn('[ProductTabs] ⚠️ Could not check datasheet:', err.message);
+        hasDatasheet.value = false;
+      }
+    }
+    
+    // Set first tab as active (or datasheet if no tabs and datasheet exists)
     if (tabs.value.length > 0) {
       activeTab.value = tabs.value[0].id;
-    } else {
-      // If no custom tabs, show datasheet by default
+    } else if (hasDatasheet.value) {
+      // If no custom tabs but datasheet exists, show datasheet by default
       activeTab.value = DATASHEET_TAB_ID;
+    } else if (tabs.value.length === 0 && !hasDatasheet.value) {
+      // No tabs and no datasheet - set to empty string (will show nothing)
+      activeTab.value = '';
     }
   } catch (err: any) {
     console.error('[ProductTabs] Error loading tabs:', err);
     error.value = err.message || 'Failed to load product tabs';
-    // Still show datasheet tab on error
-    activeTab.value = DATASHEET_TAB_ID;
+    // Only show datasheet tab on error if datasheet exists
+    if (hasDatasheet.value) {
+      activeTab.value = DATASHEET_TAB_ID;
+    }
   } finally {
     loading.value = false;
   }
@@ -94,8 +112,9 @@ const groupedSpecs = (specifications: TabSpec[]) => {
         {{ tab.title }}
       </button>
       
-      <!-- Always show Datasheet tab -->
+      <!-- Show Datasheet tab only if datasheet exists -->
       <button
+        v-if="hasDatasheet"
         :class="['tab-button', { active: activeTab === DATASHEET_TAB_ID }]"
         @click="activeTab = DATASHEET_TAB_ID"
       >
@@ -168,8 +187,9 @@ const groupedSpecs = (specifications: TabSpec[]) => {
         </div>
       </div>
       
-      <!-- Datasheet Tab (Always Available) -->
+      <!-- Datasheet Tab (Only if datasheet exists) -->
       <div
+        v-if="hasDatasheet"
         v-show="activeTab === DATASHEET_TAB_ID"
         class="tab-panel datasheet-panel"
       >
@@ -183,9 +203,9 @@ const groupedSpecs = (specifications: TabSpec[]) => {
     <LoadingIcon />
   </div>
 
-  <!-- Error State - Still show Datasheet tab -->
+  <!-- Error State - Show Datasheet tab only if datasheet exists -->
   <div v-else-if="error" class="product-tabs-container">
-    <div class="tabs-navigation">
+    <div v-if="hasDatasheet" class="tabs-navigation">
       <button
         :class="['tab-button', { active: activeTab === DATASHEET_TAB_ID }]"
         @click="activeTab = DATASHEET_TAB_ID"
@@ -194,8 +214,11 @@ const groupedSpecs = (specifications: TabSpec[]) => {
       </button>
     </div>
     <div class="tabs-content">
-      <div v-show="activeTab === DATASHEET_TAB_ID" class="tab-panel datasheet-panel">
+      <div v-if="hasDatasheet" v-show="activeTab === DATASHEET_TAB_ID" class="tab-panel datasheet-panel">
         <DatasheetTab :product="product" :key="`datasheet-${product?.databaseId}`" />
+      </div>
+      <div v-else class="tab-empty">
+        <p>{{ error }}</p>
       </div>
     </div>
   </div>
