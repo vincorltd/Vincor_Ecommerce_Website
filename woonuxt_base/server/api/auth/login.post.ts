@@ -79,69 +79,94 @@ export default defineEventHandler(async (event) => {
       setHeader(event, 'set-cookie', setCookieHeader);
     }
 
-    // Now get user data using WordPress REST API
-    const userDataUrl = `${config.public.wooApiUrl}/wp/v2/users/me`;
-    
-    console.log('[Auth Login] 📡 Fetching user data from:', userDataUrl);
-    console.log('[Auth Login] 🍪 Using cookies:', cookieString.substring(0, 100));
-    
-    const userResponse = await fetch(userDataUrl, {
-      headers: {
-        'Cookie': cookieString,
-        'Accept': 'application/json',
-      },
-    });
+    console.log('[Auth Login] ✅ WordPress authentication successful');
 
-    console.log('[Auth Login] 📡 User data response status:', userResponse.status);
+    // Get WordPress user data via WooCommerce API (works for all users)
+    // We can't use /users/me with cookies in server-side context due to domain restrictions
+    // So we'll search for the user via the WordPress API with admin credentials
+    let wordpressUser = null;
+    let userId = null;
 
-    if (!userResponse.ok) {
-      const errorText = await userResponse.text();
-      console.error('[Auth Login] ❌ Failed to get user data:', errorText.substring(0, 200));
-      
-      // Login was successful but we can't get user data
-      // This might be a CORS or API issue, but the user is logged in
-      // Let's try to return basic info at least
-      throw createError({
-        statusCode: 500,
-        message: 'Login successful but failed to retrieve user data. Please refresh the page.',
-      });
-    }
-
-    const userData = await userResponse.json();
-    console.log('[Auth Login] 👤 User data:', { id: userData.id, username: userData.username || userData.slug });
-    console.log('[Auth Login] ✅ Login successful for user:', userData.id);
-
-    // Get customer data from WooCommerce if available
-    let customerData = null;
     try {
-      const customerUrl = `${config.public.wooRestApiUrl}/customers/${userData.id}`;
-      const customerResponse = await $fetch(customerUrl, {
+      console.log('[Auth Login] 📡 Searching for WordPress user:', username);
+      
+      const wpUsersUrl = `${config.public.wooApiUrl}/wp/v2/users`;
+      const usersResponse = await $fetch(wpUsersUrl, {
+        params: {
+          search: username,
+          per_page: 10,
+        },
         headers: {
           'Authorization': `Basic ${Buffer.from(
             `${config.wooConsumerKey}:${config.wooConsumerSecret}`
           ).toString('base64')}`,
         },
       });
-      customerData = customerResponse;
+
+      if (Array.isArray(usersResponse) && usersResponse.length > 0) {
+        // Find exact match by username/slug or email
+        wordpressUser = usersResponse.find(u => 
+          u.slug === username || 
+          u.email === username ||
+          u.name === username
+        ) || usersResponse[0];
+
+        if (wordpressUser) {
+          userId = wordpressUser.id;
+          console.log('[Auth Login] 👤 Found WordPress user:', userId, 'Roles:', wordpressUser.roles);
+        }
+      }
+    } catch (error: any) {
+      console.error('[Auth Login] ❌ Failed to fetch WordPress user:', error.message);
+    }
+
+    if (!userId) {
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to retrieve user data after authentication',
+      });
+    }
+
+    // Try to get customer data from WooCommerce (may not exist for admin users)
+    let customerData = null;
+    try {
+      const customerUrl = `${config.public.wooRestApiUrl}/customers/${userId}`;
+      customerData = await $fetch(customerUrl, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(
+            `${config.wooConsumerKey}:${config.wooConsumerSecret}`
+          ).toString('base64')}`,
+        },
+      });
       console.log('[Auth Login] 👤 Customer data retrieved');
     } catch (error) {
-      console.warn('[Auth Login] ⚠️ Could not fetch customer data:', error);
-      // Not critical, continue without customer data
+      console.log('[Auth Login] ℹ️ No customer record (might be admin user)');
     }
+
+    // Create session cookie with user ID
+    setCookie(event, 'wc-customer-id', String(userId), {
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+      secure: true,
+      sameSite: 'lax',
+      httpOnly: true,
+    });
+
+    console.log('[Auth Login] ✅ Login successful for user:', userId);
 
     return {
       success: true,
       user: {
-        id: userData.id,
-        username: userData.username,
-        email: userData.email,
-        firstName: userData.first_name || '',
-        lastName: userData.last_name || '',
-        displayName: userData.name,
-        avatar: userData.avatar_urls?.['96'] || null,
-        roles: userData.roles || [],
+        id: userId,
+        username: wordpressUser.slug || wordpressUser.name,
+        email: customerData?.email || wordpressUser.email || '',
+        firstName: customerData?.first_name || wordpressUser.first_name || '',
+        lastName: customerData?.last_name || wordpressUser.last_name || '',
+        displayName: wordpressUser.name || `${customerData?.first_name || ''} ${customerData?.last_name || ''}`.trim(),
+        avatar: wordpressUser.avatar_urls?.['96'] || customerData?.avatar_url || null,
+        roles: wordpressUser.roles || ['customer'],
       },
-      customer: customerData,
+      customer: customerData, // May be null for admin users
     };
   } catch (error: any) {
     console.error('[Auth Login] 💥 Error:', error);
