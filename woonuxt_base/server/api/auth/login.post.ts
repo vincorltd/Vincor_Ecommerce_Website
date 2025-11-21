@@ -81,20 +81,25 @@ export default defineEventHandler(async (event) => {
 
     console.log('[Auth Login] ✅ WordPress authentication successful');
 
-    // Get WordPress user data via WooCommerce API (works for all users)
-    // We can't use /users/me with cookies in server-side context due to domain restrictions
-    // So we'll search for the user via the WordPress API with admin credentials
-    let wordpressUser = null;
+    // Strategy: Try to get user ID from WooCommerce customer first (works for customers)
+    // If no customer record, search WordPress users (works for admins)
     let userId = null;
+    let userRoles = ['customer'];
+    let userEmail = username;
+    let firstName = '';
+    let lastName = '';
+    let displayName = username;
+    let avatarUrl = null;
 
+    // Try to find user by email first (search all roles using WooCommerce API)
+    let customerData = null;
     try {
-      console.log('[Auth Login] 📡 Searching for WordPress user:', username);
-      
-      const wpUsersUrl = `${config.public.wooApiUrl}/wp/v2/users`;
-      const usersResponse = await $fetch(wpUsersUrl, {
+      console.log('[Auth Login] 📡 Searching for user by email:', username);
+      const customers = await $fetch(`${config.public.wooRestApiUrl}/customers`, {
         params: {
-          search: username,
-          per_page: 10,
+          email: username,
+          per_page: 1,
+          role: 'all', // Search all roles, not just customers
         },
         headers: {
           'Authorization': `Basic ${Buffer.from(
@@ -103,21 +108,63 @@ export default defineEventHandler(async (event) => {
         },
       });
 
-      if (Array.isArray(usersResponse) && usersResponse.length > 0) {
-        // Find exact match by username/slug or email
-        wordpressUser = usersResponse.find(u => 
-          u.slug === username || 
-          u.email === username ||
-          u.name === username
-        ) || usersResponse[0];
-
-        if (wordpressUser) {
-          userId = wordpressUser.id;
-          console.log('[Auth Login] 👤 Found WordPress user:', userId, 'Roles:', wordpressUser.roles);
-        }
+      if (Array.isArray(customers) && customers.length > 0) {
+        customerData = customers[0];
+        userId = customerData.id;
+        console.log('[Auth Login] 👤 Found user by email:', userId);
       }
-    } catch (error: any) {
-      console.error('[Auth Login] ❌ Failed to fetch WordPress user:', error.message);
+    } catch (error) {
+      console.log('[Auth Login] ⚠️ User not found by email');
+    }
+
+    // If not found by email, try by username search (all roles)
+    if (!customerData) {
+      try {
+        console.log('[Auth Login] 📡 Searching for user by username:', username);
+        const customers = await $fetch(`${config.public.wooRestApiUrl}/customers`, {
+          params: {
+            search: username,
+            per_page: 10,
+            role: 'all', // Search all roles, not just customers
+          },
+          headers: {
+            'Authorization': `Basic ${Buffer.from(
+              `${config.wooConsumerKey}:${config.wooConsumerSecret}`
+            ).toString('base64')}`,
+          },
+        });
+
+        if (Array.isArray(customers)) {
+          customerData = customers.find(c => c.username === username);
+          if (!customerData && customers.length > 0) {
+            customerData = customers[0];
+          }
+          if (customerData) {
+            userId = customerData.id;
+            console.log('[Auth Login] 👤 Found user by username:', userId);
+          }
+        }
+      } catch (error) {
+        console.log('[Auth Login] ⚠️ User not found by username');
+      }
+    }
+
+    // If we have user data from WooCommerce customers endpoint
+    if (customerData) {
+      userEmail = customerData.email;
+      firstName = customerData.first_name || '';
+      lastName = customerData.last_name || '';
+      displayName = `${firstName} ${lastName}`.trim() || customerData.username;
+      avatarUrl = customerData.avatar_url || null;
+      
+      console.log('[Auth Login] 🔍 Customer data keys:', Object.keys(customerData));
+      console.log('[Auth Login] 🔍 Customer role field:', customerData.role);
+      
+      // WooCommerce customers endpoint returns 'role' field
+      if (customerData.role) {
+        userRoles = [customerData.role];
+        console.log('[Auth Login] ✅ Using role from customer data:', userRoles);
+      }
     }
 
     if (!userId) {
@@ -125,22 +172,6 @@ export default defineEventHandler(async (event) => {
         statusCode: 500,
         message: 'Failed to retrieve user data after authentication',
       });
-    }
-
-    // Try to get customer data from WooCommerce (may not exist for admin users)
-    let customerData = null;
-    try {
-      const customerUrl = `${config.public.wooRestApiUrl}/customers/${userId}`;
-      customerData = await $fetch(customerUrl, {
-        headers: {
-          'Authorization': `Basic ${Buffer.from(
-            `${config.wooConsumerKey}:${config.wooConsumerSecret}`
-          ).toString('base64')}`,
-        },
-      });
-      console.log('[Auth Login] 👤 Customer data retrieved');
-    } catch (error) {
-      console.log('[Auth Login] ℹ️ No customer record (might be admin user)');
     }
 
     // Create session cookie with user ID
@@ -152,19 +183,19 @@ export default defineEventHandler(async (event) => {
       httpOnly: true,
     });
 
-    console.log('[Auth Login] ✅ Login successful for user:', userId);
+    console.log('[Auth Login] ✅ Login successful for user:', userId, 'Roles:', userRoles);
 
     return {
       success: true,
       user: {
         id: userId,
-        username: wordpressUser.slug || wordpressUser.name,
-        email: customerData?.email || wordpressUser.email || '',
-        firstName: customerData?.first_name || wordpressUser.first_name || '',
-        lastName: customerData?.last_name || wordpressUser.last_name || '',
-        displayName: wordpressUser.name || `${customerData?.first_name || ''} ${customerData?.last_name || ''}`.trim(),
-        avatar: wordpressUser.avatar_urls?.['96'] || customerData?.avatar_url || null,
-        roles: wordpressUser.roles || ['customer'],
+        username: customerData?.username || username,
+        email: userEmail,
+        firstName: firstName,
+        lastName: lastName,
+        displayName: displayName,
+        avatar: avatarUrl,
+        roles: userRoles,
       },
       customer: customerData, // May be null for admin users
     };
