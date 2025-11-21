@@ -4,6 +4,7 @@
   "main": "./nuxt.config.ts",
   "type": "module",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
     "@tato30/vue-pdf": "^1.11.5"
   }
 }
