@@ -12,8 +12,14 @@
 
 import { defineStore } from 'pinia';
 
-// Cache TTL: 5 minutes (configurable)
-const CACHE_TTL = 5 * 60 * 1000;
+// Cache TTL: 5 minutes in production, 10 seconds in development (for faster updates during dev)
+// Reduced to 10 seconds to make testing easier - you can still use ?refresh=true for immediate updates
+const CACHE_TTL = process.dev ? (10 * 1000) : (5 * 60 * 1000);
+
+// Debug: Log cache TTL on store initialization
+if (process.dev) {
+  console.log('[Products Store] 🎯 Cache TTL set to:', `${CACHE_TTL / 1000}s (development mode)`);
+}
 
 interface ProductsState {
   // All products for listing page
@@ -101,9 +107,20 @@ export const useProductsStore = defineStore('products', {
           ? (process.dev ? 'http://localhost:3000' : config.public.siteUrl)
           : '';  // Client-side can use relative URLs
         
-        console.log('[Products Store] 🌐 Fetching from:', `${baseURL}/api/products`, { isDev: process.dev, isServer: process.server });
+        // Add cache-busting timestamp to API URL
+        const timestamp = Date.now();
+        const apiUrl = `${baseURL}/api/products?_=${timestamp}`;
         
-        let response = await fetch(`${baseURL}/api/products`);
+        console.log('[Products Store] 🌐 Fetching from:', apiUrl, { isDev: process.dev, isServer: process.server });
+        
+        // Use fetch with no-cache headers to bypass browser/network caching
+        let response = await fetch(apiUrl, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         
         // If API route returns 404 during server-side rendering, fall back to WooCommerce REST API directly
         if (response.status === 404 && process.server && !process.dev) {

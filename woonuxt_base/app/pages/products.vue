@@ -14,17 +14,22 @@ const productsStore = useProductsStore();
 const { data: allProducts, pending, error } = await useAsyncData(
   'all-products',
   async () => {
-    console.log('[Products Page] 🔄 Loading products...');
-    const products = await productsStore.fetchAll();
+    // Force refresh if ?refresh=true query param is present (dev mode)
+    const forceRefresh = process.dev && process.client && route.query.refresh === 'true';
+    const products = await productsStore.fetchAll(forceRefresh);
     return products;
   },
   {
     server: false,  // Client-side only: fast, prevents build OOM, uses Pinia cache
     lazy: true,     // Non-blocking with loading state
     getCachedData: (key) => {
+      // Skip cache in dev mode when ?refresh=true query param is present
+      if (process.dev && process.client && route.query.refresh === 'true') {
+        return undefined;
+      }
+      
       // Check Pinia cache FIRST - will be instant after first load
       if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
-        console.log('[Products Page] ⚡ Using Pinia cached products (instant)');
         return productsStore.allProducts;
       }
       return undefined; // First visit: fetch from API

@@ -38,14 +38,25 @@ export default defineEventHandler(async (event) => {
     // Check if it's a numeric ID or slug
     let fullUrl: string;
     if (isNaN(Number(slug))) {
-      // It's a slug
-      fullUrl = `${baseUrl}/wc/v3/products?slug=${slug}&context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+      // It's a slug - add cache-busting timestamp to force fresh data
+      const timestamp = Date.now();
+      fullUrl = `${baseUrl}/wc/v3/products?slug=${slug}&context=view&_=${timestamp}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
     } else {
-      // It's an ID
-      fullUrl = `${baseUrl}/wc/v3/products/${slug}?context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+      // It's an ID - add cache-busting timestamp to force fresh data
+      const timestamp = Date.now();
+      fullUrl = `${baseUrl}/wc/v3/products/${slug}?context=view&_=${timestamp}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
     }
 
-    const response: any = await $fetch(fullUrl);
+    console.log('[Product API] 🌐 Fetching from WooCommerce:', fullUrl.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+
+    // Use $fetch with no-cache headers to bypass any caching
+    const response: any = await $fetch(fullUrl, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
 
     // If searching by slug, WooCommerce returns an array
     const product = Array.isArray(response) ? response[0] : response;
@@ -58,6 +69,20 @@ export default defineEventHandler(async (event) => {
     }
 
     console.log('[Product API] ✅ Product fetched:', product.name);
+    console.log('[Product API] 📊 Raw API Response:', {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      regular_price: product.regular_price,
+      sale_price: product.sale_price,
+      description: product.description?.substring(0, 100) + '...',
+      short_description: product.short_description?.substring(0, 100) + '...',
+      addons: product.addons?.length || 0,
+      custom_tabs: product.custom_tabs?.length || 0,
+      customTabs: product.customTabs?.length || 0,
+      modified: product.date_modified || product.modified,
+      modified_gmt: product.date_modified_gmt || product.modified_gmt
+    });
     
     return product;
   } catch (error: any) {

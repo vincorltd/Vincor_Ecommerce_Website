@@ -32,10 +32,21 @@ export default defineEventHandler(async (event) => {
     
     console.log('[Products API] 🔄 Fetching all products...');
     
+    // Add cache-busting timestamp to force fresh data
+    const timestamp = Date.now();
+    
     while (hasMore) {
-      const pageUrl = `${baseUrl}/wc/v3/products?per_page=100&page=${page}&context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+      const pageUrl = `${baseUrl}/wc/v3/products?per_page=100&page=${page}&context=view&_=${timestamp}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
       
-      const pageResponse: any = await $fetch(pageUrl);
+      console.log('[Products API] 🌐 Fetching page', page, 'from WooCommerce');
+      
+      const pageResponse: any = await $fetch(pageUrl, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       
       if (Array.isArray(pageResponse) && pageResponse.length > 0) {
         allProducts.push(...pageResponse);

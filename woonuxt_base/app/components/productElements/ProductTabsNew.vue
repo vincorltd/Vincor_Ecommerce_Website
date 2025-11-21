@@ -16,6 +16,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const route = useRoute();
 
 const tabs = ref<ProductTab[]>([]);
 const activeTab = ref<string>('');
@@ -27,8 +28,11 @@ const hasDatasheet = ref(false);
 const DATASHEET_TAB_ID = 'tab-datasheet-builtin';
 
 // Fetch tabs from product data or API
-onMounted(async () => {
+const fetchTabs = async () => {
   try {
+    // Skip cache in dev mode when ?refresh=true query param is present
+    const cacheBuster = process.dev && route.query.refresh === 'true' ? `?t=${Date.now()}` : '';
+    
     // First check if tabs are in product data (from WooCommerce API)
     // Handle both camelCase (customTabs) and snake_case (custom_tabs)
     const productTabs = props.product?.customTabs || props.product?.custom_tabs;
@@ -41,7 +45,7 @@ onMounted(async () => {
       const identifier = props.productSku || props.product?.databaseId;
       console.log('[ProductTabs] 🔍 Fetching tabs for:', identifier);
       
-      const response = await $fetch<ProductTabsResponse>(`/api/product-tabs/${identifier}`);
+      const response = await $fetch<ProductTabsResponse>(`/api/product-tabs/${identifier}${cacheBuster}`);
       if (response?.tabs) {
         tabs.value = response.tabs;
         console.log('[ProductTabs] ✅ Fetched tabs from API:', tabs.value.length, 'tabs');
@@ -51,9 +55,28 @@ onMounted(async () => {
     // Check if product has a datasheet
     if (props.product?.databaseId) {
       try {
-        const datasheetMetadata = await $fetch(`/api/products/${props.product.databaseId}/datasheet`);
+        // Always use cache-busting in dev mode, or when ?refresh=true query param is present
+        const shouldBustCache = process.dev || route.query.refresh === 'true';
+        const datasheetCacheBuster = shouldBustCache ? `?t=${Date.now()}` : '';
+        
+        console.log('[ProductTabs] 🔍 Checking datasheet for product:', props.product.databaseId, {
+          cacheBuster: datasheetCacheBuster || 'none'
+        });
+        
+        const datasheetMetadata = await $fetch(`/api/products/${props.product.databaseId}/datasheet${datasheetCacheBuster}`, {
+          headers: shouldBustCache ? {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          } : {}
+        });
+        
         hasDatasheet.value = datasheetMetadata?.hasDatasheet || false;
-        console.log('[ProductTabs] 📄 Datasheet check:', hasDatasheet.value ? 'Available' : 'Not available');
+        console.log('[ProductTabs] 📄 Datasheet check:', {
+          hasDatasheet: hasDatasheet.value,
+          datasheetUrl: datasheetMetadata?.datasheetUrl,
+          productId: datasheetMetadata?.productId
+        });
       } catch (err: any) {
         console.warn('[ProductTabs] ⚠️ Could not check datasheet:', err.message);
         hasDatasheet.value = false;
@@ -79,6 +102,20 @@ onMounted(async () => {
     }
   } finally {
     loading.value = false;
+  }
+};
+
+// Initial fetch
+onMounted(() => {
+  fetchTabs();
+});
+
+// Watch for product changes and refresh tabs
+watch(() => props.product?.databaseId, () => {
+  if (props.product?.databaseId) {
+    console.log('[ProductTabs] 🔄 Product changed, refreshing tabs...');
+    loading.value = true;
+    fetchTabs();
   }
 });
 
