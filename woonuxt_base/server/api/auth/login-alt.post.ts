@@ -125,6 +125,36 @@ export default defineEventHandler(async (event) => {
       httpOnly: true,
     });
 
+    // Parse cookies to use for WordPress API
+    let cookieString = '';
+    if (loginCookies) {
+      const cookies = loginCookies.split(',').map(cookie => {
+        const parts = cookie.trim().split(';');
+        return parts[0];
+      }).join('; ');
+      cookieString = cookies;
+    }
+
+    // Get actual user roles from WordPress
+    let userRoles = ['customer']; // Default fallback
+    try {
+      const userDataUrl = `${config.public.wooApiUrl}/wp/v2/users/me`;
+      const userResponse = await fetch(userDataUrl, {
+        headers: {
+          'Cookie': cookieString,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        userRoles = userData.roles || ['customer'];
+        console.log('[Auth Login Alt] 👤 User roles:', userRoles);
+      }
+    } catch (error) {
+      console.warn('[Auth Login Alt] ⚠️ Could not fetch user roles, using default');
+    }
+
     console.log('[Auth Login Alt] ✅ Login successful for user:', customer.id);
 
     return {
@@ -137,7 +167,7 @@ export default defineEventHandler(async (event) => {
         lastName: customer.last_name || '',
         displayName: `${customer.first_name} ${customer.last_name}`.trim() || customer.username,
         avatar: customer.avatar_url || null,
-        roles: ['customer'],
+        roles: userRoles,
       },
       customer: customer,
     };
@@ -154,6 +184,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
+
 
 
 

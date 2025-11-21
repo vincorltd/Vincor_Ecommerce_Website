@@ -95,3 +95,33 @@ interface WooNuxtFilter {
   openByDefault: boolean;
   terms: Terms;
 }
+
+// Product Tabs Types (Vincor Custom Plugin)
+// Note: Shared types also exist in ~/types/product-tabs.ts for server-side use
+interface TabSpec {
+  category?: string;
+  label: string;
+  value: string;
+}
+
+interface TabImage {
+  id: number;
+  url: string;
+  alt: string;
+  caption?: string;
+}
+
+interface ProductTab {
+  id: string;
+  title: string;
+  type: 'specifications' | 'content' | 'media_gallery';
+  priority: number;
+  specifications?: TabSpec[];
+  content?: string;
+  images?: TabImage[];
+}
+
+interface ProductTabsResponse {
+  product_id: number | string;
+  tabs: ProductTab[];
+}
