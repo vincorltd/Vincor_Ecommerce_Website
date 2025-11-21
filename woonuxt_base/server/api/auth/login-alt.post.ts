@@ -20,7 +20,8 @@ export default defineEventHandler(async (event) => {
 
     console.log('[Auth Login Alt] 🔐 Attempting login for:', username);
 
-    // Find customer by email or username
+    // Try to find customer by email or username
+    // Note: Admin users might not have a customer record, which is OK
     let customer = null;
     
     try {
@@ -68,14 +69,13 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    if (!customer) {
-      throw createError({
-        statusCode: 401,
-        message: 'Invalid username or password',
-      });
+    // If no customer found (e.g., admin user), that's OK - we'll verify password with WordPress
+    // and get user info from WordPress API instead
+    if (customer) {
+      console.log('[Auth Login Alt] 👤 Found customer:', customer.id);
+    } else {
+      console.log('[Auth Login Alt] ℹ️ No customer record (might be admin user)');
     }
-
-    console.log('[Auth Login Alt] 👤 Found customer:', customer.id);
 
     // Verify password by attempting WordPress authentication
     // Since we can't verify password directly through WooCommerce API,
@@ -114,10 +114,91 @@ export default defineEventHandler(async (event) => {
     // Forward authentication cookies to client
     setHeader(event, 'set-cookie', loginCookies);
 
-    // Create a simple session cookie with customer ID
-    const sessionToken = Buffer.from(`${customer.id}:${Date.now()}`).toString('base64');
-    
-    setCookie(event, 'wc-customer-id', String(customer.id), {
+    // Parse cookies to use for WordPress API
+    // WordPress returns multiple Set-Cookie headers as a comma-separated string
+    // We need to extract just the cookie name=value pairs
+    let cookieString = '';
+    if (loginCookies) {
+      // Split by line breaks or commas that are followed by a cookie name
+      const cookieArray = loginCookies.split(/,\s*(?=[a-zA-Z_][a-zA-Z0-9_]*=)/);
+      
+      const cookieValues = cookieArray.map(cookie => {
+        // Extract just the name=value part (before first semicolon)
+        const match = cookie.match(/^([^;]+)/);
+        return match ? match[1].trim() : '';
+      }).filter(Boolean);
+      
+      cookieString = cookieValues.join('; ');
+      
+      console.log('[Auth Login Alt] 🍪 Parsed cookies:', cookieValues.length, 'cookies');
+      console.log('[Auth Login Alt] 🍪 Cookie names:', cookieValues.map(c => c.split('=')[0]).join(', '));
+    }
+
+    // For customer users, we have the ID from WooCommerce
+    // For non-customers (admins), we need to get user ID from WordPress
+    let userId = customer?.id;
+    let userRoles = ['customer'];
+    let userEmail = customer?.email || username;
+    let firstName = customer?.first_name || '';
+    let lastName = customer?.last_name || '';
+    let displayName = `${firstName} ${lastName}`.trim() || username;
+    let avatarUrl = customer?.avatar_url || null;
+
+    // If no customer record, try to get WordPress user data via admin API
+    if (!customer) {
+      console.log('[Auth Login Alt] ℹ️ No customer record, fetching WordPress user via admin API');
+      
+      try {
+        // Use WooCommerce auth to query WordPress users
+        const wpUsersUrl = `${config.public.wooApiUrl}/wp/v2/users`;
+        const usersResponse = await $fetch(wpUsersUrl, {
+          params: {
+            search: username,
+            per_page: 5,
+          },
+          headers: {
+            'Authorization': `Basic ${Buffer.from(
+              `${config.wooConsumerKey}:${config.wooConsumerSecret}`
+            ).toString('base64')}`,
+          },
+        });
+
+        if (Array.isArray(usersResponse) && usersResponse.length > 0) {
+          // Find exact match by username or email
+          const wpUser = usersResponse.find(u => 
+            u.slug === username || 
+            u.email === username ||
+            u.name === username
+          ) || usersResponse[0];
+
+          if (wpUser) {
+            userId = wpUser.id;
+            userRoles = wpUser.roles || ['customer'];
+            userEmail = wpUser.email || username;
+            firstName = wpUser.first_name || '';
+            lastName = wpUser.last_name || '';
+            displayName = wpUser.name || `${firstName} ${lastName}`.trim();
+            avatarUrl = wpUser.avatar_urls?.['96'] || null;
+            
+            console.log('[Auth Login Alt] 👤 Found WordPress user:', userId, 'Roles:', userRoles);
+          }
+        }
+      } catch (error: any) {
+        console.error('[Auth Login Alt] ❌ Failed to fetch WordPress user:', error.message);
+      }
+    }
+
+    // Verify we have a user ID
+    if (!userId) {
+      console.error('[Auth Login Alt] ❌ No user ID available');
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to retrieve user data after authentication',
+      });
+    }
+
+    // Create session cookie with user ID
+    setCookie(event, 'wc-customer-id', String(userId), {
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
       secure: true,
@@ -125,51 +206,22 @@ export default defineEventHandler(async (event) => {
       httpOnly: true,
     });
 
-    // Parse cookies to use for WordPress API
-    let cookieString = '';
-    if (loginCookies) {
-      const cookies = loginCookies.split(',').map(cookie => {
-        const parts = cookie.trim().split(';');
-        return parts[0];
-      }).join('; ');
-      cookieString = cookies;
-    }
+    console.log('[Auth Login Alt] ✅ Login successful for user:', userId, 'Roles:', userRoles);
 
-    // Get actual user roles from WordPress
-    let userRoles = ['customer']; // Default fallback
-    try {
-      const userDataUrl = `${config.public.wooApiUrl}/wp/v2/users/me`;
-      const userResponse = await fetch(userDataUrl, {
-        headers: {
-          'Cookie': cookieString,
-          'Accept': 'application/json',
-        },
-      });
-
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        userRoles = userData.roles || ['customer'];
-        console.log('[Auth Login Alt] 👤 User roles:', userRoles);
-      }
-    } catch (error) {
-      console.warn('[Auth Login Alt] ⚠️ Could not fetch user roles, using default');
-    }
-
-    console.log('[Auth Login Alt] ✅ Login successful for user:', customer.id);
-
+    // Return user data
     return {
       success: true,
       user: {
-        id: customer.id,
-        username: customer.username,
-        email: customer.email,
-        firstName: customer.first_name || '',
-        lastName: customer.last_name || '',
-        displayName: `${customer.first_name} ${customer.last_name}`.trim() || customer.username,
-        avatar: customer.avatar_url || null,
+        id: userId,
+        username: customer?.username || username,
+        email: userEmail,
+        firstName: firstName,
+        lastName: lastName,
+        displayName: displayName,
+        avatar: avatarUrl,
         roles: userRoles,
       },
-      customer: customer,
+      customer: customer, // May be null for admin users
     };
   } catch (error: any) {
     console.error('[Auth Login Alt] 💥 Error:', error);

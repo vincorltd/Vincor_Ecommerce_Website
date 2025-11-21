@@ -44,15 +44,29 @@ export class AuthService {
     try {
       console.log('[Auth Service] 🔐 Logging in user:', credentials.username);
       
-      // Try the alternative login endpoint first (more reliable)
-      const response = await $fetch<AuthResponse>('/api/auth/login-alt', {
-        method: 'POST',
-        body: credentials,
-        credentials: 'include', // Important for cookies
-      });
+      // Try the standard login endpoint first
+      try {
+        const response = await $fetch<AuthResponse>('/api/auth/login', {
+          method: 'POST',
+          body: credentials,
+          credentials: 'include', // Important for cookies
+        });
 
-      console.log('[Auth Service] ✅ Login successful');
-      return response;
+        console.log('[Auth Service] ✅ Login successful (standard endpoint)');
+        return response;
+      } catch (primaryError: any) {
+        console.warn('[Auth Service] ⚠️ Standard login failed, trying alternative:', primaryError.message);
+        
+        // Fallback to alternative login endpoint
+        const response = await $fetch<AuthResponse>('/api/auth/login-alt', {
+          method: 'POST',
+          body: credentials,
+          credentials: 'include',
+        });
+
+        console.log('[Auth Service] ✅ Login successful (alternative endpoint)');
+        return response;
+      }
     } catch (error: any) {
       console.error('[Auth Service] ❌ Login failed:', error);
       
