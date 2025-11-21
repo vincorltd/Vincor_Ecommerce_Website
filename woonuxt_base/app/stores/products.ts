@@ -188,6 +188,16 @@ export const useProductsStore = defineStore('products', {
       } catch (error: any) {
         console.error('[Products Store] ❌ Error fetching products:', error);
         this.error = error.message || 'Failed to fetch products';
+        
+        // CRITICAL: Don't throw if we have cached products - return stale cache instead
+        // This prevents "no products" flash when network fails but cache exists
+        if (this.allProducts.length > 0) {
+          console.warn('[Products Store] ⚠️ Fetch failed, but returning stale cache to prevent empty state');
+          this.isLoading = false;
+          return this.allProducts;
+        }
+        
+        // Only throw if we have no cached products at all
         throw error;
       } finally {
         this.isLoading = false;
