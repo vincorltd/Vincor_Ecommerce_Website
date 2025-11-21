@@ -38,10 +38,19 @@ export default defineEventHandler(async (event) => {
 
     console.log('[Datasheet API] 🔍 Fetching datasheet for product:', productId);
 
-    // Fetch product data including meta_data
-    const fullUrl = `${baseUrl}/wc/v3/products/${productId}?context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+    // Fetch product data including meta_data with cache-busting
+    const timestamp = Date.now();
+    const fullUrl = `${baseUrl}/wc/v3/products/${productId}?context=view&_=${timestamp}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
     
-    const product: any = await $fetch(fullUrl);
+    console.log('[Datasheet API] 🌐 Fetching from WooCommerce:', fullUrl.replace(/consumer_secret=[^&]+/, 'consumer_secret=***'));
+    
+    const product: any = await $fetch(fullUrl, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
 
     if (!product) {
       throw createError({
@@ -54,9 +63,16 @@ export default defineEventHandler(async (event) => {
     let datasheetUrl: string | null = null;
     let datasheetId: string | null = null;
 
+    console.log('[Datasheet API] 📊 Product meta_data keys:', product.meta_data?.map((m: any) => m.key) || 'none');
+    
     if (product.meta_data && Array.isArray(product.meta_data)) {
       const urlMeta = product.meta_data.find((m: any) => m.key === '_product_datasheet_url');
       const idMeta = product.meta_data.find((m: any) => m.key === '_product_datasheet_id');
+      
+      console.log('[Datasheet API] 🔍 Searching meta_data:', {
+        urlMeta: urlMeta ? { key: urlMeta.key, hasValue: !!urlMeta.value } : null,
+        idMeta: idMeta ? { key: idMeta.key, hasValue: !!idMeta.value } : null
+      });
       
       datasheetUrl = urlMeta?.value || null;
       datasheetId = idMeta?.value || null;
@@ -64,13 +80,30 @@ export default defineEventHandler(async (event) => {
 
     // Check if datasheet is available in a direct field (in case plugin exposes it differently)
     if (!datasheetUrl && product.datasheet_url) {
+      console.log('[Datasheet API] 📄 Found datasheet_url in direct field');
       datasheetUrl = product.datasheet_url;
+    }
+    
+    // Check for other possible field names
+    if (!datasheetUrl && product.datasheet) {
+      console.log('[Datasheet API] 📄 Found datasheet in direct field');
+      datasheetUrl = product.datasheet;
     }
 
     if (datasheetUrl) {
       console.log('[Datasheet API] ✅ Datasheet found:', datasheetUrl);
+      console.log('[Datasheet API] 📊 Datasheet metadata:', {
+        url: datasheetUrl,
+        id: datasheetId,
+        hasDatasheet: true
+      });
     } else {
       console.log('[Datasheet API] ℹ️ No datasheet found for product:', productId);
+      console.log('[Datasheet API] 🔍 Checked fields:', {
+        meta_data_keys: product.meta_data?.map((m: any) => m.key) || [],
+        hasDatasheetUrl: !!product.datasheet_url,
+        hasDatasheet: !!product.datasheet
+      });
     }
 
     return {

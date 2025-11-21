@@ -10,8 +10,14 @@
 
 import { defineStore } from 'pinia';
 
-// Cache TTL: 5 minutes (configurable)
-const CACHE_TTL = 5 * 60 * 1000;
+// Cache TTL: 5 minutes in production, 10 seconds in development (for faster updates during dev)
+// Reduced to 10 seconds to make testing easier - you can still use ?refresh=true for immediate updates
+const CACHE_TTL = process.dev ? (10 * 1000) : (5 * 60 * 1000);
+
+// Debug: Log cache TTL on store initialization
+if (process.dev) {
+  console.log('[Product Store] 🎯 Cache TTL set to:', `${CACHE_TTL / 1000}s (development mode)`);
+}
 
 interface CachedProduct {
   product: Product;
@@ -79,9 +85,33 @@ export const useProductStore = defineStore('product', {
      * Fetch a single product by slug (with caching and TTL)
      */
     async fetchProduct(slug: string, forceRefresh = false): Promise<Product | null> {
+      console.log('[Product Store] 🔍 fetchProduct called:', {
+        slug,
+        forceRefresh,
+        cacheSize: this.productCache.size,
+        ttl: `${CACHE_TTL / 1000}s (${process.dev ? 'dev' : 'prod'})`
+      });
+      
       // Check cache first
       const cached = this.productCache.get(slug);
       const now = Date.now();
+
+      if (cached) {
+        const age = now - cached.cachedAt;
+        const ageSeconds = Math.floor(age / 1000);
+        const isFresh = age < CACHE_TTL;
+        
+        console.log('[Product Store] 🔍 Cache check:', {
+          found: true,
+          age: `${ageSeconds}s`,
+          ttl: `${CACHE_TTL / 1000}s`,
+          isFresh,
+          forceRefresh,
+          willUseCache: !forceRefresh && isFresh
+        });
+      } else {
+        console.log('[Product Store] 📭 No cache found for:', slug);
+      }
 
       // Return cached if fresh and not forcing refresh
       if (!forceRefresh && cached && (now - cached.cachedAt < CACHE_TTL)) {
@@ -90,6 +120,14 @@ export const useProductStore = defineStore('product', {
         return cached.product;
       }
 
+      if (forceRefresh) {
+        console.log('[Product Store] 🔄 Force refresh requested, bypassing cache');
+      } else if (cached) {
+        console.log('[Product Store] ⏰ Cache expired, fetching fresh');
+      } else {
+        console.log('[Product Store] 📭 No cache, fetching fresh');
+      }
+      
       console.log('[Product Store] 🔄 Fetching product from API:', slug);
       this.isLoading = true;
       this.error = null;
@@ -117,9 +155,20 @@ export const useProductStore = defineStore('product', {
           ? (process.dev ? 'http://localhost:3000' : config.public.siteUrl)
           : '';  // Client-side can use relative URLs
         
-        console.log('[Product Store] 🌐 Fetching from:', `${baseURL}/api/products/${slug}`, { isDev: process.dev, isServer: process.server });
+        // Add cache-busting timestamp to API URL
+        const timestamp = Date.now();
+        const apiUrl = `${baseURL}/api/products/${slug}?_=${timestamp}`;
         
-        let response = await fetch(`${baseURL}/api/products/${slug}`);
+        console.log('[Product Store] 🌐 Fetching from:', apiUrl, { isDev: process.dev, isServer: process.server });
+        
+        // Use fetch with no-cache headers to bypass browser/network caching
+        let response = await fetch(apiUrl, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         
         // If API route returns 404 during server-side rendering, fall back to WooCommerce REST API directly
         if (response.status === 404 && process.server && !process.dev) {
@@ -194,10 +243,35 @@ export const useProductStore = defineStore('product', {
         }
 
         console.log('[Product Store] ✅ Product fetched:', restProduct.name);
+        console.log('[Product Store] 📊 Raw REST API Data:', {
+          id: restProduct.id,
+          name: restProduct.name,
+          price: restProduct.price,
+          regular_price: restProduct.regular_price,
+          sale_price: restProduct.sale_price,
+          addons: restProduct.addons?.length || 0,
+          custom_tabs: restProduct.custom_tabs?.length || 0,
+          customTabs: restProduct.customTabs?.length || 0,
+          description: restProduct.description?.substring(0, 100) + '...',
+          short_description: restProduct.short_description?.substring(0, 100) + '...',
+          modified: restProduct.date_modified || restProduct.modified
+        });
         console.log('[Product Store] 🎁 Add-ons:', restProduct.addons?.length || 0);
 
         // Transform to GraphQL structure (technical debt)
         const transformed = this.transformProductToGraphQL(restProduct);
+        
+        console.log('[Product Store] 🔄 Transformed Product:', {
+          id: transformed.databaseId,
+          name: transformed.name,
+          price: transformed.price,
+          regularPrice: transformed.regularPrice,
+          salePrice: transformed.salePrice,
+          addons: transformed.addons?.length || 0,
+          customTabs: transformed.customTabs?.length || 0,
+          description: transformed.description?.substring(0, 100) + '...',
+          shortDescription: transformed.shortDescription?.substring(0, 100) + '...'
+        });
 
         // Fetch variations if variable product
         if (restProduct.type === 'variable' && restProduct.variations?.length > 0) {
@@ -368,6 +442,9 @@ export const useProductStore = defineStore('product', {
       
       return {
         ...restProduct,
+        // Preserve custom_tabs and customTabs (handle both naming conventions)
+        customTabs: restProduct.customTabs || restProduct.custom_tabs || [],
+        custom_tabs: restProduct.custom_tabs || restProduct.customTabs || [],
         productCategories: {
           nodes: restProduct.categories || []
         },

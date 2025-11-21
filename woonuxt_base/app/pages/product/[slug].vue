@@ -24,6 +24,28 @@ const slug = computed(() => {
 // Use Pinia product store (singular) for individual product pages
 const productStore = useProductStore();
 
+// Check if we should force refresh (check query param)
+const shouldForceRefresh = computed(() => {
+  return process.client && route.query.refresh === 'true';
+});
+
+// Check Pinia cache FIRST before useAsyncData (for instant loading on client-side navigation)
+// This gives us instant loading when navigating between products
+// BUT skip cache if force refresh is requested
+const cachedProduct = computed(() => {
+  if (shouldForceRefresh.value) {
+    return null;
+  }
+  
+  if (process.client) {
+    const cached = productStore.productCache.get(slug.value);
+    if (cached && productStore.isProductCached(slug.value)) {
+      return cached.product;
+    }
+  }
+  return null;
+});
+
 // Fetch product with TRUE hybrid: SSR first load, then Pinia cache
 const { data: productData, pending, error, refresh } = await useAsyncData(
   () => `product-${slug.value}`,
@@ -32,12 +54,18 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
     if (!currentSlug) {
       throw createError({ statusCode: 404, message: 'Product slug is required' });
     }
-    console.log('[Product Page] 🔄 Loading product:', currentSlug);
+    
+    // If we have cached product, return it immediately (no API call)
+    if (cachedProduct.value) {
+      return cachedProduct.value;
+    }
+    
     try {
-      const product = await productStore.fetchProduct(currentSlug);
+      // Force refresh if ?refresh=true query param is present
+      const forceRefresh = shouldForceRefresh.value;
+      const product = await productStore.fetchProduct(currentSlug, forceRefresh);
       
       if (!product) {
-        console.warn('[Product Page] ⚠️ Product not found:', currentSlug);
         // During server-side rendering (including prerendering), return null instead of throwing
         // This allows the build to continue. At runtime, the template will handle the 404 gracefully
         if (process.server) {
@@ -47,25 +75,11 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
         throw createError({ statusCode: 404, message: 'Product not found' });
       }
       
-      console.log('[Product Page] ✅ Product loaded:', product.name);
-      console.log('[Product Page] 🎁 Add-ons count:', product.addons?.length || 0);
-      
-      // Debug: Log addon IDs
-      if (product.addons && product.addons.length > 0) {
-        console.log('[Product Page] 🔍 Add-ons debug:', product.addons.map((a: any) => ({
-          id: a.id,
-          name: a.name,
-          fieldName: a.fieldName,
-          type: a.type
-        })));
-      }
-      
       return product;
     } catch (err: any) {
       // During server-side rendering (including prerendering), catch errors and return null
       // This allows the build to continue
       if (process.server) {
-        console.warn('[Product Page] ⚠️ Error during SSR/prerender, skipping:', err.message);
         return null;
       }
       // If it's already a createError, rethrow it (only at client-side runtime)
@@ -81,14 +95,35 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
     lazy: false,    // Blocking (wait for data before showing page)
     transform: (result) => result || null,
     watch: [slug],
+    // In dev mode, always fetch fresh on client to avoid SSR/client mismatch
+    // This prevents the "flash of old price" issue
+    ...(process.dev ? {
+      // Force fresh fetch on client-side in dev mode
+      // This ensures client and server have the same data
+      default: () => null
+    } : {}),
+    // Use stable key (not timestamp-based) so getCachedData can work properly
     getCachedData: (key) => {
-      // On client-side navigation, check Pinia cache FIRST
+      // In dev mode, skip cache on client-side to avoid hydration mismatch
+      // This prevents the "flash of old price" issue where SSR has fresh data
+      // but client hydrates with cached data
+      if (process.dev && process.client) {
+        return undefined;
+      }
+      
+      // Skip cache when ?refresh=true query param is present
+      if (process.client && route.query.refresh === 'true') {
+        return undefined;
+      }
+      
+      // Check Pinia cache FIRST - works on both server and client
+      // This gives instant loading when product is already cached
       const cached = productStore.productCache.get(slug.value);
-      if (process.client && cached && productStore.isProductCached(slug.value)) {
-        console.log('[Product Page] ⚡ Using Pinia cached product (client navigation):', slug.value);
+      if (cached && productStore.isProductCached(slug.value)) {
         return cached.product;
       }
-      return undefined; // Server-side or cache expired: fetch fresh
+      
+      return undefined; // Cache miss or expired: fetch fresh
     }
   }
 );
@@ -101,7 +136,7 @@ watch(productData, (newProduct) => {
   if (newProduct) {
     product.value = newProduct;
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });
 
 // Handle 404 errors - only throw at client-side runtime, not during SSR/prerendering
 // Use watchEffect to reactively handle errors
@@ -161,12 +196,16 @@ const mergeLiveStockStatus = (payload: Product): void => {
 onMounted(async () => {
   if (!product.value) return;
   
-  // Stock status already included in REST API response
-  // No need for separate stock status check like GraphQL
-  console.log('[Product Page] ⚡ Product initialized with stock status:', product.value.stockStatus);
-  
   if (product.value.variations) {
     indexOfTypeAny.value.push(...checkForVariationTypeOfAny(product.value));
+  }
+  
+  // Dev helper: Add global function to clear cache
+  if (process.dev && process.client) {
+    (window as any).clearProductCache = () => {
+      productStore.clearProduct(slug.value);
+      refresh();
+    };
   }
 });
 
@@ -221,21 +260,7 @@ const regularProductPrice = computed(() => {
   const priceString = typeof rawPrice === 'string' ? rawPrice.replace(/[^0-9.-]+/g, '') : rawPrice.toString();
   const price = parseFloat(priceString);
   
-  console.log('[Product Page] 💰 regularProductPrice computed:', {
-    typeValue: type.value?.name,
-    rawRegularPrice: type.value?.rawRegularPrice,
-    rawPrice: type.value?.rawPrice,
-    regularPrice: type.value?.regularPrice,
-    salePrice: type.value?.salePrice,
-    price: type.value?.price,
-    selectedRaw: rawPrice,
-    priceString: priceString,
-    parsed: price,
-    typeOf: typeof rawPrice,
-  });
-  
   if (!price || isNaN(price)) {
-    console.error('[Product Page] ❌ Invalid base price! Parsed as:', price, 'from type.value:', type.value);
     return 0;
   }
   
@@ -270,12 +295,6 @@ const subtotalPrice = computed(() => {
   const basePrice = regularProductPrice.value || 0;
   const total = basePrice + addonTotal;
   
-  console.log('[Product Page] 🧮 subtotalPrice computed:', {
-    basePrice: basePrice,
-    addonsTotal: addonTotal,
-    subtotal: total,
-  });
-  
   return Math.round(total * 100) / 100;
 });
 
@@ -290,31 +309,12 @@ const formattedTotal = computed(() => {
   const qty = quantity.value;
   const total = subtotal * qty;
   
-  console.log('[Product Page] 💵 formattedTotal computed:', {
-    basePrice: regularProductPrice.value,
-    addonsTotal: addonsTotalPrice.value,
-    subtotal: subtotal,
-    quantity: qty,
-    grandTotal: total,
-    formatted: formatPrice(total),
-  });
-  
   return formatPrice(total);
 });
 
-// Watch for changes and log pricing details
+// Watch for changes in selected options and quantity (for reactivity)
 watch([selectedOptions, quantity], () => {
-  const basePrice = regularProductPrice.value;
-  const addonsTotal = calculateAddonTotalPrice();
-  const total = calculateTotalPrice();
-  
-  console.log('[Product Page] 💰 Price Breakdown:', {
-    basePrice: formatPrice(basePrice),
-    addonsTotal: formatPrice(addonsTotal),
-    subtotal: formatPrice(total),
-    quantity: quantity.value,
-    grandTotal: formatPrice(total * quantity.value),
-  });
+  // Price calculations are handled by computed properties
 }, { deep: true });
 
 // Validate add-ons selection
@@ -353,12 +353,6 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
   const addonsArray: any[] = [];
   const processedAddonIds = new Set<string>(); // Track processed addons to prevent duplicates
   
-  console.log('[Product Page] 🔍 Formatting addons for cart:', {
-    selectedCount: selected.length,
-    addonsCount: addons.length,
-    selected: selected,
-  });
-  
   // First, process all checkbox addons (they're stored in a flat array, not indexed)
   addons.forEach((addon) => {
     if (addon.type.toUpperCase() === 'CHECKBOX') {
@@ -366,13 +360,6 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
       const checkboxSelections = Array.isArray(selected) 
         ? selected.filter((s: any) => s?.fieldName === addon.fieldName || s?.fieldName === addon.name)
         : [];
-      
-      console.log('[Product Page] 🔍 Checkbox addon:', {
-        addonName: addon.name,
-        fieldName: addon.fieldName,
-        foundSelections: checkboxSelections.length,
-        selections: checkboxSelections,
-      });
       
       checkboxSelections.forEach((item: any) => {
         const checkboxIndex = addon.options.findIndex((opt: any) => opt.label === item.label);
@@ -396,12 +383,6 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
             value: item.label || item.value,
             price: checkboxPrice,
             optionIndex: checkboxIndex >= 0 ? checkboxIndex : 0,
-          });
-          
-          console.log('[Product Page] ✅ Added checkbox addon:', {
-            fieldName: addon.name,
-            label: item.label,
-            price: checkboxPrice,
           });
         }
       });
@@ -437,21 +418,10 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
     
     // Prevent duplicates
     if (processedAddonIds.has(uniqueKey)) {
-      console.log('[Product Page] ⚠️ Skipping duplicate addon:', uniqueKey);
       return;
     }
     
     processedAddonIds.add(uniqueKey);
-    
-    console.log('[Product Page] 🔍 Formatting indexed addon:', {
-      addonIndex,
-      id: addon.id,
-      fieldName: addon.fieldName,
-      name: addon.name,
-      selection: selectionLabel,
-      optionIndex,
-      optionsCount: addon.options?.length
-    });
     
     // Ensure price is a number, not a string
     const price = typeof selection.price === 'string' 
@@ -466,15 +436,7 @@ function formatAddonsForCart(selected: any[], addons: any[]): Array<{ key: strin
       price: price,
       optionIndex: optionIndex,
     });
-    
-    console.log('[Product Page] ✅ Added indexed addon:', {
-      fieldName: addon.name,
-      label: selectionLabel,
-      price: price,
-    });
   });
-  
-  console.log('[Product Page] 📦 Final addons array:', addonsArray);
   
   // Add 'addons' key with all add-ons as JSON (includes optionIndex for Store API)
   if (addonsArray.length > 0) {
@@ -504,9 +466,6 @@ function handleAddToCart() {
     return;
   }
   
-  console.log('[Product Page] 🛒 Adding to cart...');
-  console.log('[Product Page] Selected options:', selectedOptions.value);
-  
   // Validate add-ons if product has them
   if (product.value.addons && product.value.addons.length > 0) {
     const validation = validateAddonsSelection(
@@ -524,8 +483,6 @@ function handleAddToCart() {
       selectedOptions.value as any[],
       product.value.addons
     );
-    
-    console.log('[Product Page] ✅ Add-ons formatted as extraData:', extraData);
     
     // Add to cart with extraData
     addToCart({
@@ -658,7 +615,16 @@ useHead(() => ({
 
 <template>
   <main class="container relative py-6 xl:max-w-7xl">
-    <div v-if="product">
+    <!-- Show loading only if no product data AND still pending -->
+    <div v-if="pending && !product" class="min-h-screen w-full flex items-center justify-center">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p class="text-gray-600">Loading product...</p>
+      </div>
+    </div>
+
+    <!-- Show product when available (cached or fresh) -->
+    <div v-else-if="product">
       <SEOHead :info="product" />
       <Breadcrumb :product class="mb-6" v-if="storeSettings.showBreadcrumbOnSingleProduct" />
 
