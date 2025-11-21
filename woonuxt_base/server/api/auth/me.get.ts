@@ -20,64 +20,50 @@ export default defineEventHandler(async (event) => {
 
     console.log('[Auth Me] 👤 Fetching user data for ID:', userId);
 
-    // Get cookies from request
-    const cookieHeader = getHeader(event, 'cookie');
-    
-    if (!cookieHeader) {
-      throw createError({
-        statusCode: 401,
-        message: 'Not authenticated - no session cookies',
-      });
-    }
-
-    // Get WordPress user data (works for all users including admins)
-    const userDataUrl = `${config.public.wooApiUrl}/wp/v2/users/me`;
-    const userResponse = await fetch(userDataUrl, {
-      headers: {
-        'Cookie': cookieHeader,
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!userResponse.ok) {
-      throw createError({
-        statusCode: 401,
-        message: 'Invalid session',
-      });
-    }
-
-    const wordpressUser = await userResponse.json();
-    console.log('[Auth Me] ✅ WordPress user retrieved:', wordpressUser.id, 'Roles:', wordpressUser.roles);
-
-    // Try to get customer data from WooCommerce (may not exist for admin users)
+    // Get user data from WooCommerce customers API (includes all roles)
     let customerData = null;
+    
     try {
       const customerUrl = `${config.public.wooRestApiUrl}/customers/${userId}`;
       customerData = await $fetch(customerUrl, {
+        params: {
+          role: 'all', // Ensure we get users of any role
+        },
         headers: {
           'Authorization': `Basic ${Buffer.from(
             `${config.wooConsumerKey}:${config.wooConsumerSecret}`
           ).toString('base64')}`,
         },
       });
-      console.log('[Auth Me] ✅ Customer data retrieved');
-    } catch (error) {
-      console.log('[Auth Me] ℹ️ No customer record (might be admin user)');
+      
+      console.log('[Auth Me] ✅ User data retrieved:', {
+        id: customerData.id,
+        role: customerData.role,
+      });
+    } catch (error: any) {
+      console.error('[Auth Me] ❌ Failed to fetch user:', error.message);
+      throw createError({
+        statusCode: 401,
+        message: 'Invalid session or user not found',
+      });
     }
+
+    // Extract role from customer data
+    const userRoles = customerData.role ? [customerData.role] : ['customer'];
 
     return {
       success: true,
       user: {
-        id: wordpressUser.id,
-        username: wordpressUser.slug || wordpressUser.name,
-        email: customerData?.email || wordpressUser.email || '',
-        firstName: customerData?.first_name || wordpressUser.first_name || '',
-        lastName: customerData?.last_name || wordpressUser.last_name || '',
-        displayName: wordpressUser.name || `${customerData?.first_name || ''} ${customerData?.last_name || ''}`.trim(),
-        avatar: wordpressUser.avatar_urls?.['96'] || customerData?.avatar_url || null,
-        roles: wordpressUser.roles || ['customer'],
+        id: customerData.id,
+        username: customerData.username,
+        email: customerData.email || '',
+        firstName: customerData.first_name || '',
+        lastName: customerData.last_name || '',
+        displayName: `${customerData.first_name || ''} ${customerData.last_name || ''}`.trim() || customerData.username,
+        avatar: customerData.avatar_url || null,
+        roles: userRoles,
       },
-      customer: customerData, // May be null for admin users
+      customer: customerData,
     };
   } catch (error: any) {
     console.error('[Auth Me] 💥 Error:', error);

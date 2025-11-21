@@ -20,13 +20,32 @@ const linkStartsWithWpAdmin = link?.startsWith('/wp-admin') || false;
 
 // Check if user is an administrator
 const isAdmin = computed(() => {
-  if (!viewer.value?.roles) return false;
-  return viewer.value.roles.includes('administrator');
+  if (!viewer.value?.roles) {
+    console.log('[WPAdminLink] No viewer roles found');
+    return false;
+  }
+  const hasAdminRole = viewer.value.roles.includes('administrator');
+  console.log('[WPAdminLink] Viewer roles:', viewer.value.roles, 'Is admin:', hasAdminRole);
+  return hasAdminRole;
+});
+
+// Check if we're in development mode (runtime check)
+const isDev = computed(() => {
+  // Check if running on localhost or development URLs
+  if (process.client) {
+    return window.location.hostname === 'localhost' || 
+           window.location.hostname === '127.0.0.1' ||
+           window.location.hostname.includes('local');
+  }
+  return false;
 });
 
 // Show link if in dev mode OR user is admin
-const isDev = process.dev;
-const shouldShowLink = computed(() => isDev || isAdmin.value);
+const shouldShowLink = computed(() => {
+  const showLink = isDev.value || isAdmin.value;
+  console.log('[WPAdminLink] Should show link:', showLink, '(isDev:', isDev.value, 'isAdmin:', isAdmin.value, ')');
+  return showLink;
+});
 </script>
 
 <template>
@@ -36,7 +55,7 @@ const shouldShowLink = computed(() => isDev || isAdmin.value);
       :href="formattedLink"
       target="_blank"
       class="wp-admin-link"
-      :title="isDev ? 'Edit in WordPress (Dev Mode)' : 'Edit in WordPress (Admin)'">
+      :title="isDev.value ? 'Edit in WordPress (Dev Mode)' : 'Edit in WordPress (Admin)'">
       <span class="link">
         <slot />
       </span>

@@ -153,6 +153,11 @@ export const useAuth = () => {
       // Set viewer and customer state
       if (response.user) {
         viewer.value = transformUserToViewer(response.user);
+        console.log('[useAuth] 👤 Viewer set:', {
+          id: viewer.value.id,
+          username: viewer.value.username,
+          roles: viewer.value.roles,
+        });
       }
       
       if (response.customer) {
@@ -416,7 +421,12 @@ export const useAuth = () => {
           customer.value = transformCustomer(response.customer);
         }
         
-        console.log('[useAuth] ✅ Session initialized for user:', response.user.id);
+        console.log('[useAuth] ✅ Session initialized for user:', response.user.id, 'Roles:', response.user.roles);
+        console.log('[useAuth] 👤 Viewer state:', {
+          id: viewer.value.id,
+          username: viewer.value.username,
+          roles: viewer.value.roles,
+        });
       } else {
         console.log('[useAuth] ℹ️ No active session');
         viewer.value = null;

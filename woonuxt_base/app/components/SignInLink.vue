@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const { viewer, avatar, logoutUser, isPending, wishlistLink } = useAuth();
 const linkTitle = computed<string>(() => viewer.value?.username || 'Sign In');
+
+// Check if user is an administrator
+const isAdmin = computed(() => {
+  const hasAdminRole = viewer.value?.roles?.includes('administrator') || false;
+  console.log('[SignInLink] Viewer roles:', viewer.value?.roles, 'Is admin:', hasAdminRole);
+  return hasAdminRole;
+});
 </script>
 
 <template>
@@ -9,7 +16,10 @@ const linkTitle = computed<string>(() => viewer.value?.username || 'Sign In');
       <span v-if="avatar" class="relative avatar">
         <img
           :src="avatar"
-          class="rounded-full transform scale-125 shadow-md overflow-hidden border border-white my-auto"
+          :class="[
+            'rounded-full transform scale-125 shadow-md overflow-hidden my-auto',
+            isAdmin ? 'border-2 border-yellow-400 ring-2 ring-yellow-300' : 'border border-white'
+          ]"
           width="22"
           height="22"
           :alt="linkTitle" />

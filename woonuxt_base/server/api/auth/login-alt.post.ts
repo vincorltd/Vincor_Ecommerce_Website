@@ -20,16 +20,16 @@ export default defineEventHandler(async (event) => {
 
     console.log('[Auth Login Alt] 🔐 Attempting login for:', username);
 
-    // Try to find customer by email or username
-    // Note: Admin users might not have a customer record, which is OK
+    // Try to find user by email or username using WooCommerce API with role=all
     let customer = null;
     
     try {
-      // Try to find by email first
+      // Try to find by email first (all roles)
       const customers = await $fetch(`${config.public.wooRestApiUrl}/customers`, {
         params: {
           email: username,
           per_page: 1,
+          role: 'all', // Search all roles including administrators
         },
         headers: {
           'Authorization': `Basic ${Buffer.from(
@@ -42,16 +42,17 @@ export default defineEventHandler(async (event) => {
         customer = customers[0];
       }
     } catch (error) {
-      console.log('[Auth Login Alt] ⚠️ Customer not found by email, trying username');
+      console.log('[Auth Login Alt] ⚠️ User not found by email, trying username');
     }
 
-    // If not found by email, try by username
+    // If not found by email, try by username (all roles)
     if (!customer) {
       try {
         const customers = await $fetch(`${config.public.wooRestApiUrl}/customers`, {
           params: {
             search: username,
             per_page: 10,
+            role: 'all', // Search all roles including administrators
           },
           headers: {
             'Authorization': `Basic ${Buffer.from(
@@ -63,18 +64,20 @@ export default defineEventHandler(async (event) => {
         if (Array.isArray(customers)) {
           // Find exact username match
           customer = customers.find(c => c.username === username);
+          if (!customer && customers.length > 0) {
+            customer = customers[0];
+          }
         }
       } catch (error) {
-        console.error('[Auth Login Alt] ❌ Failed to search for customer:', error);
+        console.error('[Auth Login Alt] ❌ Failed to search for user:', error);
       }
     }
 
-    // If no customer found (e.g., admin user), that's OK - we'll verify password with WordPress
-    // and get user info from WordPress API instead
+    // If no user found
     if (customer) {
-      console.log('[Auth Login Alt] 👤 Found customer:', customer.id);
+      console.log('[Auth Login Alt] 👤 Found user:', customer.id, 'Role:', customer.role);
     } else {
-      console.log('[Auth Login Alt] ℹ️ No customer record (might be admin user)');
+      console.log('[Auth Login Alt] ℹ️ No user found');
     }
 
     // Verify password by attempting WordPress authentication
@@ -134,59 +137,20 @@ export default defineEventHandler(async (event) => {
       console.log('[Auth Login Alt] 🍪 Cookie names:', cookieValues.map(c => c.split('=')[0]).join(', '));
     }
 
-    // For customer users, we have the ID from WooCommerce
-    // For non-customers (admins), we need to get user ID from WordPress
+    // Extract user data from WooCommerce customer object
     let userId = customer?.id;
-    let userRoles = ['customer'];
+    let userRoles = customer?.role ? [customer.role] : ['customer'];
     let userEmail = customer?.email || username;
     let firstName = customer?.first_name || '';
     let lastName = customer?.last_name || '';
-    let displayName = `${firstName} ${lastName}`.trim() || username;
+    let displayName = `${firstName} ${lastName}`.trim() || customer?.username || username;
     let avatarUrl = customer?.avatar_url || null;
 
-    // If no customer record, try to get WordPress user data via admin API
-    if (!customer) {
-      console.log('[Auth Login Alt] ℹ️ No customer record, fetching WordPress user via admin API');
-      
-      try {
-        // Use WooCommerce auth to query WordPress users
-        const wpUsersUrl = `${config.public.wooApiUrl}/wp/v2/users`;
-        const usersResponse = await $fetch(wpUsersUrl, {
-          params: {
-            search: username,
-            per_page: 5,
-          },
-          headers: {
-            'Authorization': `Basic ${Buffer.from(
-              `${config.wooConsumerKey}:${config.wooConsumerSecret}`
-            ).toString('base64')}`,
-          },
-        });
-
-        if (Array.isArray(usersResponse) && usersResponse.length > 0) {
-          // Find exact match by username or email
-          const wpUser = usersResponse.find(u => 
-            u.slug === username || 
-            u.email === username ||
-            u.name === username
-          ) || usersResponse[0];
-
-          if (wpUser) {
-            userId = wpUser.id;
-            userRoles = wpUser.roles || ['customer'];
-            userEmail = wpUser.email || username;
-            firstName = wpUser.first_name || '';
-            lastName = wpUser.last_name || '';
-            displayName = wpUser.name || `${firstName} ${lastName}`.trim();
-            avatarUrl = wpUser.avatar_urls?.['96'] || null;
-            
-            console.log('[Auth Login Alt] 👤 Found WordPress user:', userId, 'Roles:', userRoles);
-          }
-        }
-      } catch (error: any) {
-        console.error('[Auth Login Alt] ❌ Failed to fetch WordPress user:', error.message);
-      }
-    }
+    console.log('[Auth Login Alt] 🔍 User data:', {
+      id: userId,
+      role: customer?.role,
+      roles: userRoles,
+    });
 
     // Verify we have a user ID
     if (!userId) {
