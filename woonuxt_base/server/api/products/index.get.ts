@@ -30,19 +30,45 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Set cache headers for CDN/Edge caching (5 minutes CDN, 1 minute browser)
-    // stale-while-revalidate allows serving stale content while refreshing in background
-    setHeaders(event, {
-      'Cache-Control': 'public, s-maxage=300, max-age=60, stale-while-revalidate=600',
-      'Vary': 'Accept-Encoding',
-    });
+    // Check if this is a server-side request (SSR) - bypass cache for fresh data
+    // Server requests include a special header or query param to bypass cache
+    const isSSRRequest = getHeader(event, 'x-nuxt-ssr') === 'true' || 
+                         getQuery(event).ssr === 'true' ||
+                         getQuery(event).refresh === 'true';
+    
+    // For SSR requests, disable caching to ensure fresh data
+    // For client requests, use shorter cache for better performance
+    if (isSSRRequest) {
+      setHeaders(event, {
+        'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
+    } else {
+      // Set cache headers for CDN/Edge caching (shorter for client requests)
+      // Reduced to 1 minute CDN, 30 seconds browser to allow faster updates
+      setHeaders(event, {
+        'Cache-Control': 'public, s-maxage=60, max-age=30, stale-while-revalidate=120',
+        'Vary': 'Accept-Encoding',
+      });
+    }
 
     // First, get total count to determine how many pages we need
-    const firstPageUrl = `${baseUrl}/wc/v3/products?per_page=100&page=1&context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+    // Add cache-busting timestamp for SSR requests to ensure fresh data
+    const cacheBuster = isSSRRequest ? `&_=${Date.now()}` : '';
+    const firstPageUrl = `${baseUrl}/wc/v3/products?per_page=100&page=1&context=view${cacheBuster}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
     
-    console.log('[Products API] 🔄 Fetching all products...');
+    console.log('[Products API] 🔄 Fetching all products...', { isSSRRequest, cacheBuster: !!cacheBuster });
     
-    const firstPageResponse: any = await $fetch(firstPageUrl);
+    // Use $fetch with no-cache option for SSR requests
+    const fetchOptions = isSSRRequest ? { 
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    } : {};
+    
+    const firstPageResponse: any = await $fetch(firstPageUrl, fetchOptions);
     
     if (!Array.isArray(firstPageResponse)) {
       throw new Error('Invalid response from WooCommerce API');
@@ -61,9 +87,9 @@ export default defineEventHandler(async (event) => {
         // Create batch of page requests
         const pagePromises: Promise<any>[] = [];
         for (let i = 0; i < batchSize && hasMore; i++) {
-          const pageUrl = `${baseUrl}/wc/v3/products?per_page=100&page=${page + i}&context=view&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
+          const pageUrl = `${baseUrl}/wc/v3/products?per_page=100&page=${page + i}&context=view${cacheBuster}&consumer_key=${consumerKey}&consumer_secret=${consumerSecret}`;
           pagePromises.push(
-            $fetch(pageUrl).catch((err) => {
+            $fetch(pageUrl, fetchOptions).catch((err) => {
               console.warn(`[Products API] ⚠️ Failed to fetch page ${page + i}:`, err);
               return [];
             })

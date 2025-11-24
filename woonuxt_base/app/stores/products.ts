@@ -107,19 +107,29 @@ export const useProductsStore = defineStore('products', {
           ? (process.dev ? 'http://localhost:3000' : config.public.siteUrl)
           : '';  // Client-side can use relative URLs
         
-        // Add cache-busting timestamp to API URL
+        // For server-side requests, pass SSR flag to bypass API cache
+        // For client-side, add cache-busting timestamp
+        const isSSR = process.server;
         const timestamp = Date.now();
-        const apiUrl = `${baseURL}/api/products?_=${timestamp}`;
+        const queryParams = isSSR ? '?ssr=true' : `?_=${timestamp}`;
+        const apiUrl = `${baseURL}/api/products${queryParams}`;
         
-        console.log('[Products Store] 🌐 Fetching from:', apiUrl, { isDev: process.dev, isServer: process.server });
+        console.log('[Products Store] 🌐 Fetching from:', apiUrl, { isDev: process.dev, isServer: process.server, isSSR });
         
         // Use fetch with no-cache headers to bypass browser/network caching
+        const fetchHeaders: HeadersInit = {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        };
+        
+        // Add SSR header for server-side requests
+        if (isSSR) {
+          fetchHeaders['x-nuxt-ssr'] = 'true';
+        }
+        
         let response = await fetch(apiUrl, {
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
+          headers: fetchHeaders
         });
         
         // If API route returns 404 during server-side rendering, fall back to WooCommerce REST API directly
@@ -211,6 +221,13 @@ export const useProductsStore = defineStore('products', {
       this.allProducts = [];
       this.lastFetched = null;
       console.log('[Products Store] 🗑️ Products cache cleared');
+    },
+
+    /**
+     * Clear all cached products (alias for clearCache for consistency)
+     */
+    clearAllCache(): void {
+      this.clearCache();
     },
 
     /**
