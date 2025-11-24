@@ -64,6 +64,12 @@ export default defineNuxtConfig({
     
     '@nuxt/image', '@nuxtjs/i18n', '@nuxtjs/sitemap'],
 
+  // Configure @nuxt/icon to use SVG mode for production compatibility
+  icon: {
+    mode: 'svg', // Use SVG mode instead of CSS mode for better production support
+    provider: 'server', // Use server-side rendering for icons
+  },
+
   // Configure Pinia stores directory
   pinia: {
     storesDirs: ['./app/stores'],

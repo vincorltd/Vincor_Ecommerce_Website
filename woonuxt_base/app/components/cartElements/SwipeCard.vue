@@ -1,6 +1,6 @@
 <template>
   <div v-if="isAlive" class="rounded-lg flex w-full relative items-start py-2">
-    <TrashIcon class="transform transition-all right-0 w-6 scale-0 absolute top-4" :class="{ 'scale-100': lengthX > 40, 'delete-ready': lengthX > 80 }" />
+    <Icon name="ion:trash" class="transform transition-all right-0 w-6 scale-0 absolute top-4" :class="{ 'scale-100': lengthX > 40, 'delete-ready': lengthX > 80 }" />
     <div class="rounded-lg w-full" :class="{ 'transition-all': !isSwiping }" ref="el" :style="{ transform: isSwiping ? `translateX(-${lengthX}px)` : `none` }">
       <slot />
     </div>
