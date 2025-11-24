@@ -50,7 +50,7 @@ const versionInfo = `WooNuxt v${wooNuxtVersionInfo}`;
     </div>
     <div class="container border-t flex items-center justify-center mb-4">
       <div class="copywrite">
-        <p class="py-4 text-xs text-white text-center">Copyright © 2007-2024 Vincor, Ltd. All Rights Reserved.
+        <p class="py-4 text-xs text-white text-center">Copyright © 2007-2026 Vincor, Ltd. All Rights Reserved.
         </p>
         <p class="py-4 text-xs text-white text-center">Vincor, Ltd.
 5652 W. Monee-Manhattan Road

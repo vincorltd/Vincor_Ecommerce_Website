@@ -370,6 +370,11 @@ watch(allProducts, (newProducts, oldProducts) => {
 }, { immediate: true, deep: true });
 
 onMounted(() => {
+  // Ensure composable's allProducts is synced before filtering
+  if (allProducts.value && allProducts.value.length > 0) {
+    setProducts(allProducts.value);
+  }
+  
   if (!isQueryEmpty.value) updateProductList();
 });
 
@@ -377,6 +382,13 @@ watch(
   () => route.query,
   () => {
     if (route.name !== 'products') return;
+    
+    // CRITICAL: Ensure composable's allProducts is synced before filtering
+    // This is essential for search/filter to work properly on the products page
+    if (allProducts.value && allProducts.value.length > 0) {
+      setProducts(allProducts.value);
+    }
+    
     updateProductList();
   },
 );
