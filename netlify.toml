@@ -39,6 +39,15 @@
     # Critical: Vary by product ID and SKU to prevent cross-product contamination
     Vary = "Accept-Encoding, X-Product-ID, X-Product-SKU, X-Cache-Key"
 
+# CRITICAL: PDF proxy must not cache at CDN level to prevent wrong PDFs being served
+[[headers]]
+  for = "/api/pdf-proxy"
+  [headers.values]
+    Cache-Control = "private, max-age=3600, must-revalidate"
+    Pragma = "no-cache"
+    # Vary by PDF URL to ensure each product's PDF has unique cache key
+    Vary = "Accept-Encoding, X-PDF-URL"
+
 # Headers for product pages - allow ISR but with short cache
 [[headers]]
   for = "/product/**"

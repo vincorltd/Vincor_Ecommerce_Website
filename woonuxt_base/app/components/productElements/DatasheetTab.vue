@@ -127,10 +127,16 @@ const pdfUrl = computed(() => {
 });
 
 // Use proxy by default to avoid CORS issues and faster loading
+// CRITICAL: Include product ID in proxy URL to prevent Netlify from caching wrong PDF
 const finalPdfUrl = computed(() => {
-  if (!pdfUrl.value) return null;
-  // Always use proxy for reliable, fast loading without CORS issues
-  return `/api/pdf-proxy?url=${encodeURIComponent(pdfUrl.value)}`;
+  if (!pdfUrl.value || !props.product?.databaseId) return null;
+  // Include product ID in query params to ensure unique cache key per product
+  // This prevents Netlify from serving cached PDF from different product
+  const productId = props.product.databaseId;
+  const sku = props.product.sku || 'nosku';
+  // Add cache-busting timestamp to prevent stale cache
+  const timestamp = Date.now();
+  return `/api/pdf-proxy?url=${encodeURIComponent(pdfUrl.value)}&productId=${productId}&sku=${encodeURIComponent(sku)}&_=${timestamp}`;
 });
 
 // Client-side only refs (initialized after datasheet URL is fetched)
@@ -232,6 +238,7 @@ const initializePdfViewer = async () => {
   }
 
   // CRITICAL: Clean up previous PDF before loading new one
+  // Always cleanup if we're loading a different product or URL
   if (currentPdfUrl.value && (currentPdfUrl.value !== pdfUrl || currentProductId.value !== productId)) {
     console.log('[DatasheetTab] 🔄 PDF URL or product changed, cleaning up previous PDF:', {
       oldUrl: currentPdfUrl.value?.substring(0, 50),
@@ -240,6 +247,16 @@ const initializePdfViewer = async () => {
       newProductId: productId
     });
     cleanupPdf();
+    // CRITICAL: Wait a tick to ensure cleanup completes before loading new PDF
+    // This prevents race conditions where old PDF might still be rendering
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+
+  // CRITICAL: Double-check we're still loading for the correct product after cleanup
+  // This prevents loading PDF for wrong product if user navigated quickly
+  if (props.product?.databaseId !== productId) {
+    console.warn('[DatasheetTab] ⚠️ Product changed during PDF load, aborting');
+    return;
   }
 
   // Set current URL and product ID before loading
@@ -262,8 +279,11 @@ const initializePdfViewer = async () => {
       productSku: props.product?.sku
     });
     
-    // CRITICAL: Create new PDF instance for this URL
-    const pdfData = usePDF(pdfUrl);
+    // CRITICAL: Create new PDF instance for this URL with cache-busting
+    // Add product ID to URL to ensure unique instance per product
+    // This prevents vue-pdf from reusing cached PDF from different product
+    const uniquePdfUrl = `${pdfUrl}${pdfUrl.includes('?') ? '&' : '?'}_product=${productId}&_timestamp=${Date.now()}`;
+    const pdfData = usePDF(uniquePdfUrl);
     pdfDataRef.value = pdfData;
     
     // Watch for PDF load completion
@@ -324,8 +344,16 @@ watch(finalPdfUrl, (newUrl, oldUrl) => {
 watch(() => props.product?.databaseId, (newId, oldId) => {
   if (newId && newId !== oldId) {
     console.log('[DatasheetTab] 🔄 Product ID changed, cleaning up PDF:', { oldId, newId });
+    // CRITICAL: Complete cleanup before loading new product's PDF
     cleanupPdf();
-    currentProductId.value = null; // Reset to force new PDF load
+    // Reset all state to force complete re-initialization
+    currentProductId.value = null;
+    currentPdfUrl.value = null;
+    VuePDFComponent.value = null; // Force component to be re-imported
+    // Clear datasheet metadata to force refetch
+    datasheetMetadata.value = null;
+    // Refetch datasheet metadata for new product
+    fetchDatasheetMetadata();
   }
 });
 
@@ -427,17 +455,17 @@ const handlePdfError = (error?: any) => {
       </div>
 
       <!-- PDF Pages - Client Only -->
-      <!-- CRITICAL: Add key based on product ID to force re-render when product changes -->
+      <!-- CRITICAL: Force complete re-render when product changes by using product ID in key -->
       <ClientOnly>
         <div 
-          v-if="pdf && currentProductId === product?.databaseId" 
+          v-if="pdf && currentProductId === product?.databaseId && shouldShowPdf" 
           class="pdf-pages bg-white"
-          :key="`pdf-${product?.databaseId}-${currentPdfUrl || 'none'}`"
+          :key="`pdf-viewer-${product?.databaseId}-${currentPdfUrl?.substring(0, 50) || 'none'}`"
         >
           <component
             :is="VuePDFComponent"
             v-for="page in pages" 
-            :key="`page-${product?.databaseId}-${page}`"
+            :key="`page-${product?.databaseId}-${page}-${currentPdfUrl?.substring(0, 20) || ''}`"
             :pdf="pdf" 
             :page="page"
             text-layer
