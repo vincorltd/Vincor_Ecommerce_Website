@@ -81,51 +81,54 @@ const { data: allProducts, pending, error, refresh: refreshProducts } = await us
   {
     server: true,        // Enable SSR - Nuxt best practice
     lazy: false,         // Blocking: wait for data before rendering (no empty shell)
-    default: () => [],   // Default empty array
+    // CRITICAL: In Nuxt 4, do NOT set default in dev mode - let SSR data hydrate naturally
+    // Setting default can interfere with SSR hydration. Only use in production for graceful degradation.
+    ...(process.dev ? {} : { default: () => [] }),
     // CRITICAL: Transform ensures proper data serialization for SSR hydration
-    // Match the pattern from /product/[slug].vue which works correctly
+    // In Nuxt 4, transform is called for both SSR serialization AND client hydration
+    // The transform must ALWAYS return an array - never undefined/null
     transform: (result) => {
       // Ensure we always return an array (never null/undefined)
-      // This is critical for SSR hydration
+      // This is critical for SSR hydration - Nuxt expects consistent return types
       const transformed = Array.isArray(result) ? result : [];
       console.log('[Products Page] 🔄 Transform called:', { 
         inputType: typeof result, 
         isArray: Array.isArray(result),
-        length: transformed.length 
+        length: transformed.length,
+        isServer: process.server,
+        isClient: process.client,
+        hasData: transformed.length > 0
       });
       return transformed;
     },
-    // Match the working /product/[slug].vue pattern exactly
+    // CRITICAL: In Nuxt 4, getCachedData should ONLY be used for client-side navigation
+    // On initial page load (hard refresh), return undefined to allow SSR hydration
     getCachedData: (key) => {
       // Server: Always fetch fresh for SSR (ensures latest data)
       if (process.server) {
         return undefined;
       }
       
-      // Client: For initial hydration (hard refresh), let Nuxt hydrate SSR data from HTML
-      // Only use Pinia cache for client-side navigation, not initial page load
-      
-      // CRITICAL: In dev mode on initial load, return undefined to allow SSR hydration
-      // Returning cached data here would prevent SSR data from hydrating
-      if (process.dev && process.client) {
-        // Check if this is an initial load (no previous navigation)
-        // If window.__NUXT__ exists with data, Nuxt should hydrate it
-        // Don't interfere with that process
-        return undefined;
-      }
+      // CRITICAL FIX for Nuxt 4: On initial client load (hard refresh), 
+      // we MUST return undefined to allow Nuxt to hydrate SSR data from __NUXT__ payload.
+      // Only use cached data for client-side navigation (when user navigates from another page).
       
       // Skip cache on refresh request
       if (process.client && route.query.refresh === 'true') {
         return undefined;
       }
       
-      // Client navigation: Use Pinia cache if fresh (not initial load)
-      // This gives instant loading when navigating between pages
+      // Client-side navigation (NOT initial load): Use Pinia cache if fresh
+      // Detect navigation vs initial load by checking if we have cached products and this isn't first mount
+      // We can't check allProducts.value here (doesn't exist yet), so we check Pinia store state
       if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
+        // This is likely a client-side navigation - use cache for instant loading
         console.log('[Products Page] 💾 Using Pinia cache for navigation:', productsStore.allProducts.length, 'products');
         return productsStore.allProducts;
       }
       
+      // For initial page load: return undefined to allow Nuxt to hydrate SSR data
+      // Nuxt will automatically extract SSR data from __NUXT__ payload during hydration
       return undefined;
     }
   }
@@ -155,22 +158,44 @@ const updateWindowState = () => {
   }
 };
 
-// Initial update - wait a tick for Nuxt hydration to complete
-if (process.client) {
-  // Immediate check
-  updateWindowState();
-  console.log('[Products Page] 💧 Client hydration (immediate) - allProducts.value:', {
-    exists: !!allProducts.value,
-    length: allProducts.value?.length || 0,
-    isArray: Array.isArray(allProducts.value),
-    pending: pending.value,
-    error: error.value
-  });
-  
-  // Check after next tick (Nuxt hydration might still be in progress)
-  nextTick(() => {
+  // CRITICAL: Nuxt 4 hydration fix - manually extract SSR data if Nuxt didn't hydrate it
+  // This is a workaround for a Nuxt 4 bug where large SSR payloads don't hydrate automatically
+  if (process.client) {
+    // Function to manually extract SSR data from Nuxt payload
+    const extractSSRData = () => {
+      const nuxtData = (window as any).__NUXT__;
+      if (!nuxtData) return null;
+      
+      // Check if SSR data exists in the payload
+      // Nuxt 4 stores SSR data in different locations depending on compression
+      if (nuxtData.data && Array.isArray(nuxtData.data)) {
+        for (const entry of nuxtData.data) {
+          if (entry && entry['all-products']) {
+            const ssrProducts = entry['all-products'];
+            if (Array.isArray(ssrProducts) && ssrProducts.length > 0) {
+              console.log('[Products Page] 🔧 Found SSR data in payload - manually extracting', ssrProducts.length, 'products');
+              return ssrProducts;
+            }
+          }
+        }
+      }
+      
+      // Also check compressed state format
+      if (nuxtData.state && nuxtData.state.$s && nuxtData.state.$s['all-products']) {
+        const compressed = nuxtData.state.$s['all-products'];
+        if (compressed && typeof compressed === 'object') {
+          console.log('[Products Page] 🔧 Found SSR data in compressed state - attempting to extract');
+          // Try to decompress or extract
+          return null; // Would need decompression logic here
+        }
+      }
+      
+      return null;
+    };
+    
+    // Immediate check
     updateWindowState();
-    console.log('[Products Page] 💧 Client hydration (nextTick) - allProducts.value:', {
+    console.log('[Products Page] 💧 Client hydration (immediate) - allProducts.value:', {
       exists: !!allProducts.value,
       length: allProducts.value?.length || 0,
       isArray: Array.isArray(allProducts.value),
@@ -178,37 +203,56 @@ if (process.client) {
       error: error.value
     });
     
-    // CRITICAL: If still empty after hydration, SSR hydration failed
-    // Force a refresh to fetch data from the API
-    if (!allProducts.value || allProducts.value.length === 0) {
-      console.error('[Products Page] ❌ SSR hydration FAILED! allProducts.value is empty after nextTick');
-      console.error('[Products Page] 🔍 Checking Nuxt payload...');
-      const nuxtData = (window as any).__NUXT__;
-      if (nuxtData) {
-        console.log('[Products Page] 🔍 Nuxt data exists:', {
-          hasData: !!nuxtData.data,
-          hasState: !!nuxtData.state,
-          keys: Object.keys(nuxtData),
-          dataType: nuxtData.data ? typeof nuxtData.data : null,
-        });
-        
-        // Try to manually extract SSR data if it exists
-        if (nuxtData.data && Array.isArray(nuxtData.data)) {
-          const ssrEntry = nuxtData.data.find((entry: any) => entry && entry['all-products']);
-          if (ssrEntry && ssrEntry['all-products']) {
-            console.warn('[Products Page] 🔍 Found SSR data in payload but not hydrated!', ssrEntry['all-products'].length);
-          }
-        }
-      }
+    // Check after next tick (Nuxt hydration might still be in progress)
+    nextTick(() => {
+      updateWindowState();
+      console.log('[Products Page] 💧 Client hydration (nextTick) - allProducts.value:', {
+        exists: !!allProducts.value,
+        length: allProducts.value?.length || 0,
+        isArray: Array.isArray(allProducts.value),
+        pending: pending.value,
+        error: error.value
+      });
       
-      // Force refresh to fetch data
-      console.warn('[Products Page] 🔄 Forcing refresh to fetch products...');
-      setTimeout(() => {
-        refreshProducts();
-      }, 100);
-    }
-  });
-}
+      // CRITICAL: If still empty after hydration, try to manually extract SSR data
+      if (!allProducts.value || allProducts.value.length === 0) {
+        console.warn('[Products Page] ⚠️ SSR hydration may have failed - attempting manual extraction');
+        const ssrData = extractSSRData();
+        
+        if (ssrData && ssrData.length > 0) {
+          // Manually set the SSR data if we found it
+          console.log('[Products Page] ✅ Successfully extracted SSR data - setting products', ssrData.length);
+          allProducts.value = ssrData;
+          
+          // Also populate Pinia store for consistency
+          if (ssrData.length > 0) {
+            productsStore.setProducts(ssrData);
+          }
+          
+          return; // Success - no need to force refresh
+        }
+        
+        // If we can't extract SSR data, log details and force refresh as fallback
+        console.error('[Products Page] ❌ SSR hydration FAILED! allProducts.value is empty and SSR data not found in payload');
+        console.error('[Products Page] 🔍 Checking Nuxt payload...');
+        const nuxtData = (window as any).__NUXT__;
+        if (nuxtData) {
+          console.log('[Products Page] 🔍 Nuxt data exists:', {
+            hasData: !!nuxtData.data,
+            hasState: !!nuxtData.state,
+            keys: Object.keys(nuxtData),
+            dataType: nuxtData.data ? typeof nuxtData.data : null,
+          });
+        }
+        
+        // Force refresh to fetch data (fallback)
+        console.warn('[Products Page] 🔄 Forcing refresh to fetch products (fallback)...');
+        setTimeout(() => {
+          refreshProducts();
+        }, 100);
+      }
+    });
+  }
 
 // Update window reference when data, pending, or error changes
 watch([allProducts, pending, error], () => {
