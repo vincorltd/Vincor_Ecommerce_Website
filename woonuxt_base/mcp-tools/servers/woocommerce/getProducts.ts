@@ -59,3 +59,7 @@ export async function getProducts(input: GetProductsInput = {}): Promise<GetProd
   return callMCPTool<GetProductsResponse>('woocommerce__get_products', input);
 }
 
+
+
+
+

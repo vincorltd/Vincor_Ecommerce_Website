@@ -84,14 +84,22 @@ export default defineEventHandler(async (event) => {
       modified_gmt: product.date_modified_gmt || product.modified_gmt
     });
 
-    // CRITICAL: Set no-cache headers to prevent Netlify/CDN caching
-    // This ensures product data updates immediately when changed in WordPress
+    // CRITICAL: Set headers to prevent Netlify/CDN caching AND enable proper cache invalidation
+    // Use ETag based on product modification date for cache validation
+    const lastModified = product.date_modified || product.date_modified_gmt || product.modified || product.modified_gmt;
+    const etag = `"product-${product.id}-${lastModified || Date.now()}"`;
+    
     setHeaders(event, {
       'Cache-Control': 'no-cache, no-store, must-revalidate, private',
       'Pragma': 'no-cache',
       'Expires': '0',
+      'ETag': etag,
+      'X-Product-ID': String(product.id),
+      'X-Product-Modified': lastModified || '',
       'X-Content-Type-Options': 'nosniff',
-      'Vary': 'Accept-Encoding',
+      'Vary': 'Accept-Encoding, X-Product-ID',
+      // Force Netlify to not cache by adding unique header
+      'X-Cache-Key': `product-${product.id}-${Date.now()}`,
     });
     
     return product;

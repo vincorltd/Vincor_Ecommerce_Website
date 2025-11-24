@@ -83,3 +83,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   return callMCPTool<Order>('woocommerce__create_order', { order: input });
 }
 
+
+
+
+

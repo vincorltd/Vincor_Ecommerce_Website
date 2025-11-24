@@ -91,22 +91,19 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
     }
   },
   {
-    server: true,   // SSR/SSG for instant first load
-    lazy: false,    // Blocking (wait for data before showing page)
+    server: true,   // SSR/ISR for instant first load with actual content
+    lazy: false,    // CRITICAL: Blocking - wait for data before showing page (no empty shell)
     transform: (result) => result || null,
     watch: [slug],
-    // In dev mode, always fetch fresh on client to avoid SSR/client mismatch
-    // This prevents the "flash of old price" issue
+    // Ensure data is serialized into HTML for instant rendering
+    // This prevents the "content takes a couple seconds to render" issue
     ...(process.dev ? {
-      // Force fresh fetch on client-side in dev mode
-      // This ensures client and server have the same data
+      // In dev, always fetch fresh to avoid SSR/client mismatch
       default: () => null
     } : {}),
     // Use stable key (not timestamp-based) so getCachedData can work properly
     getCachedData: (key) => {
       // In dev mode, skip cache on client-side to avoid hydration mismatch
-      // This prevents the "flash of old price" issue where SSR has fresh data
-      // but client hydrates with cached data
       if (process.dev && process.client) {
         return undefined;
       }
@@ -116,8 +113,14 @@ const { data: productData, pending, error, refresh } = await useAsyncData(
         return undefined;
       }
       
-      // Check Pinia cache FIRST - works on both server and client
-      // This gives instant loading when product is already cached
+      // On server: NEVER use cache - always fetch fresh for SSR
+      // This ensures SSR HTML has the latest data
+      if (process.server) {
+        return undefined;
+      }
+      
+      // On client: Check Pinia cache for instant navigation
+      // This gives instant loading when navigating between products
       const cached = productStore.productCache.get(slug.value);
       if (cached && productStore.isProductCached(slug.value)) {
         return cached.product;

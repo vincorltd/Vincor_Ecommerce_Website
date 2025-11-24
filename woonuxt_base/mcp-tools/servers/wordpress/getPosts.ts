@@ -63,3 +63,7 @@ export async function getPosts(input: GetPostsInput = {}): Promise<GetPostsRespo
   return callMCPTool<GetPostsResponse>('wordpress__get_posts', input);
 }
 
+
+
+
+

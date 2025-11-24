@@ -73,3 +73,7 @@ export async function getOrders(input: GetOrdersInput = {}): Promise<GetOrdersRe
   return callMCPTool<GetOrdersResponse>('woocommerce__get_orders', input);
 }
 
+
+
+
+

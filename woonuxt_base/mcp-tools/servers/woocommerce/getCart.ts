@@ -72,3 +72,7 @@ export async function getCart(): Promise<Cart> {
   return callMCPTool<Cart>('woocommerce__get_cart', {});
 }
 
+
+
+
+

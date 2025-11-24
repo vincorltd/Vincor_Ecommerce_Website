@@ -36,3 +36,7 @@ export async function getProductTabs(input: GetProductTabsInput): Promise<GetPro
   return callMCPTool<GetProductTabsResponse>('wordpress__get_product_tabs', input);
 }
 
+
+
+
+

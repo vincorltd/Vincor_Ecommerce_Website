@@ -53,3 +53,7 @@ export async function addToCart(input: AddToCartInput): Promise<AddToCartRespons
   return callMCPTool<AddToCartResponse>('woocommerce__add_to_cart', input);
 }
 
+
+
+
+

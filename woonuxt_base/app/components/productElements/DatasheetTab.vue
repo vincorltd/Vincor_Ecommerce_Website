@@ -38,12 +38,23 @@ const fetchDatasheetMetadata = async () => {
   });
   
   try {
-    // Add cache-busting timestamp to prevent Netlify/CDN caching
+    // CRITICAL: Add multiple cache-busting strategies to prevent Netlify/CDN caching
+    // Netlify sometimes ignores query params, so we use headers + query params + product ID
     const timestamp = Date.now();
-    const metadata = await $fetch(`/api/products/${requestedProductId}/datasheet?_=${timestamp}`, {
+    const cacheKey = `${requestedProductId}-${requestedSku || 'nosku'}-${timestamp}`;
+    const metadata = await $fetch(`/api/products/${requestedProductId}/datasheet`, {
+      query: {
+        _: timestamp,
+        productId: requestedProductId,
+        sku: requestedSku || '',
+        cacheKey: cacheKey
+      },
       headers: {
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
+        'X-Product-ID': String(requestedProductId),
+        'X-Product-SKU': requestedSku || '',
+        'X-Cache-Bust': String(timestamp)
       }
     });
     

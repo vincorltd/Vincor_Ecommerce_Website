@@ -172,3 +172,5 @@ No additional configuration required. The MCP server uses existing:
 - [WooCommerce MCP Documentation](https://developer.woocommerce.com/docs/features/mcp/)
 - [WordPress Abilities API](https://github.com/WordPress/abilities-api)
 
+
+

@@ -205,14 +205,23 @@ export default defineEventHandler(async (event) => {
       datasheetUrl: response.datasheetUrl ? response.datasheetUrl.substring(0, 100) + '...' : null
     });
 
-    // CRITICAL: Set no-cache headers to prevent Netlify/CDN caching
-    // This ensures each product gets its own datasheet, not a cached one
+    // CRITICAL: Set headers to prevent Netlify/CDN caching AND ensure product-specific cache keys
+    // Include product ID in cache key to prevent cross-product contamination
+    const lastModified = product.date_modified || product.date_modified_gmt || product.modified || product.modified_gmt;
+    const etag = `"datasheet-${product.id}-${lastModified || Date.now()}"`;
+    
     setHeaders(event, {
       'Cache-Control': 'no-cache, no-store, must-revalidate, private',
       'Pragma': 'no-cache',
       'Expires': '0',
+      'ETag': etag,
+      'X-Product-ID': String(product.id),
+      'X-Product-SKU': product.sku || '',
+      'X-Product-Modified': lastModified || '',
       'X-Content-Type-Options': 'nosniff',
-      'Vary': 'Accept-Encoding',
+      'Vary': 'Accept-Encoding, X-Product-ID, X-Product-SKU',
+      // Force Netlify to not cache by adding unique, product-specific header
+      'X-Cache-Key': `datasheet-${product.id}-${product.sku || 'nosku'}-${Date.now()}`,
     });
 
     return response;

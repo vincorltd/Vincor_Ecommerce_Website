@@ -26,3 +26,7 @@ export async function getRoutes(): Promise<GetRoutesResponse> {
   return callMCPTool<GetRoutesResponse>('nuxt__get_routes', {});
 }
 
+
+
+
+
