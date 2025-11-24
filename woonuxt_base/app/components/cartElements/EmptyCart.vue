@@ -4,6 +4,6 @@ const { emptyCart } = useCart();
 
 <template>
   <button class="cursor-pointer top-6 right-6 md:right-8 absolute" title="Empty Cart" @click="emptyCart">
-    <Icon name="ion:trash-outline" class="w-6 h-6" />
+    <Icon name="ion:trash-bin-outline" class="w-6 h-6" />
   </button>
 </template>

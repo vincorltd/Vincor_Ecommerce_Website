@@ -190,7 +190,7 @@ const subtotalPrice = computed(() => {
             @click="removeItem"
             type="button"
             class="flex items-center gap-1 hover:text-red-500 cursor-pointer">
-            <Icon name="ion:trash-outline" class="hidden md:inline-block" size="12" />
+            <Icon name="ion:trash-bin-outline" class="hidden md:inline-block" size="12" />
           </button>
         </div>
       </div>
