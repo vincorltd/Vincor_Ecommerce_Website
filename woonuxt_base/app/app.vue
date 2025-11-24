@@ -47,6 +47,11 @@ useHead({
       <CookieConsent />
     </ClientOnly>
     
+    <!-- Global Debug Panel (dev mode only) -->
+    <ClientOnly>
+      <GlobalDebugPanel />
+    </ClientOnly>
+    
     <!-- Global Notification Modal -->
     <NotificationModal
       :show="notificationState.show"

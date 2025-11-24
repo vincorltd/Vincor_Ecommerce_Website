@@ -68,3 +68,5 @@ const tabs = await wordpress.getProductTabs({ identifier: 'PROD-123' });
 
 
 
+
+

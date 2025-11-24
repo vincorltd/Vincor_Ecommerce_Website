@@ -106,11 +106,12 @@ export default defineNuxtConfig({
       // Use ISR (Incremental Static Regeneration) with short revalidation
       // This ensures content updates within 5 minutes while still being fast
       // ISR generates pages on-demand and caches them, but revalidates more frequently
-      '/products': { isr: 300 },                     // ISR: regenerate every 5 minutes
-      '/products/**': { isr: 300 },                  // ISR: regenerate every 5 minutes
-      '/product/**': { isr: 300 },                  // ISR: regenerate every 5 minutes (critical for prices)
-      '/product-category/**': { isr: 300 },          // ISR: regenerate every 5 minutes
-      '/categories': { isr: 300 },                  // ISR: regenerate every 5 minutes
+      // NOTE: In development, ISR can interfere with SSR hydration, so we disable it
+      '/products': process.dev ? { ssr: true } : { isr: 300 },                     // SSR in dev, ISR in prod
+      '/products/**': process.dev ? { ssr: true } : { isr: 300 },                  // SSR in dev, ISR in prod
+      '/product/**': process.dev ? { ssr: true } : { isr: 300 },                  // SSR in dev, ISR in prod
+      '/product-category/**': process.dev ? { ssr: true } : { isr: 300 },          // SSR in dev, ISR in prod
+      '/categories': process.dev ? { ssr: true } : { isr: 300 },                  // SSR in dev, ISR in prod
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
       // API routes should NOT be prerendered - they are serverless functions
