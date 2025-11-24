@@ -72,11 +72,22 @@ export default defineEventHandler(async (event) => {
       console.log('[PDF Proxy] ✅ PDF fetched and cached, size:', pdfBuffer.byteLength, 'bytes');
     }
 
-    // Set appropriate headers
+    // CRITICAL: Set headers to prevent Netlify CDN from caching PDFs incorrectly
+    // PDFs must be cached by their actual URL, not by the proxy URL
+    // Include product-specific headers to ensure correct PDF is served
+    const urlObj = new URL(pdfUrl);
+    const pdfFilename = urlObj.pathname.split('/').pop() || 'unknown';
+    
     setHeaders(event, {
       'Content-Type': 'application/pdf',
       'Content-Length': pdfBuffer.byteLength.toString(),
-      'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+      // CRITICAL: Don't cache at CDN level - let browser cache, but not Netlify
+      // This prevents Netlify from serving wrong PDF when switching products
+      'Cache-Control': 'private, max-age=3600, must-revalidate',
+      'Pragma': 'no-cache',
+      'X-PDF-URL': pdfUrl,
+      'X-PDF-Filename': pdfFilename,
+      'Vary': 'Accept-Encoding, X-PDF-URL',
       'Access-Control-Allow-Origin': '*', // Allow CORS
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
