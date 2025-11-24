@@ -13,6 +13,9 @@ const productsStore = useProductsStore();
 // Dev mode check for template (safe for SSR)
 const isDev = computed(() => typeof process !== 'undefined' && process.dev);
 
+// PRODUCTION FIX: Track manual refresh state to ensure UI shows loading
+const isManuallyRefreshing = ref(false);
+
 // Fetch products following Nuxt, WooCommerce, and Netlify best practices
 // - Nuxt: useAsyncData for SSR-compatible data fetching
 // - WooCommerce: REST API with pagination (per_page=100, parallel batches)
@@ -232,7 +235,7 @@ const updateWindowState = () => {
           return; // Success - no need to force refresh
         }
         
-        // If we can't extract SSR data, log details and force refresh as fallback
+        // If we can't extract SSR data, force refresh immediately
         console.error('[Products Page] ❌ SSR hydration FAILED! allProducts.value is empty and SSR data not found in payload');
         console.error('[Products Page] 🔍 Checking Nuxt payload...');
         const nuxtData = (window as any).__NUXT__;
@@ -245,11 +248,63 @@ const updateWindowState = () => {
           });
         }
         
-        // Force refresh to fetch data (fallback)
-        console.warn('[Products Page] 🔄 Forcing refresh to fetch products (fallback)...');
-        setTimeout(() => {
-          refreshProducts();
-        }, 100);
+        // PRODUCTION FIX: Force immediate refresh with retry mechanism
+        console.warn('[Products Page] 🔄 Forcing refresh to fetch products (production fallback)...');
+        
+        // Set manual refresh flag to show loading state immediately
+        isManuallyRefreshing.value = true;
+        
+        // Immediate refresh attempt
+        const performRefresh = async () => {
+          try {
+            // Force refresh - this will trigger the async function
+            // Note: refreshProducts() should set pending=true automatically, but we track it manually too
+            await refreshProducts();
+            
+            // Wait a bit and check if products are loaded
+            setTimeout(() => {
+              if (!allProducts.value || allProducts.value.length === 0) {
+                console.warn('[Products Page] ⚠️ First refresh attempt failed - retrying...');
+                // Retry once more after 500ms
+                setTimeout(async () => {
+                  try {
+                    await refreshProducts();
+                    // Give it time to load
+                    setTimeout(() => {
+                      isManuallyRefreshing.value = false;
+                      if (allProducts.value && allProducts.value.length > 0) {
+                        console.log('[Products Page] ✅ Retry refresh successful - products loaded:', allProducts.value.length);
+                      }
+                    }, 500);
+                  } catch (retryError) {
+                    console.error('[Products Page] ❌ Retry refresh failed:', retryError);
+                    isManuallyRefreshing.value = false;
+                  }
+                }, 500);
+              } else {
+                console.log('[Products Page] ✅ Refresh successful - products loaded:', allProducts.value.length);
+                isManuallyRefreshing.value = false;
+              }
+            }, 300);
+          } catch (error) {
+            console.error('[Products Page] ❌ Refresh failed:', error);
+            // Retry after error
+            setTimeout(async () => {
+              try {
+                await refreshProducts();
+                setTimeout(() => {
+                  isManuallyRefreshing.value = false;
+                }, 500);
+              } catch (retryError) {
+                console.error('[Products Page] ❌ Retry refresh also failed:', retryError);
+                isManuallyRefreshing.value = false;
+              }
+            }, 1000);
+          }
+        };
+        
+        // Start refresh immediately (no delay for production)
+        performRefresh();
       }
     });
   }
@@ -273,9 +328,21 @@ if (allProducts.value && allProducts.value.length > 0) {
   }
 }
 
-// Watch for changes and sync
-watch(allProducts, (newProducts) => {
+// Watch for changes and sync - CRITICAL for production refresh fallback
+watch(allProducts, (newProducts, oldProducts) => {
   if (newProducts && newProducts.length > 0) {
+    console.log('[Products Page] 🔄 Products updated in watch:', {
+      oldLength: oldProducts?.length || 0,
+      newLength: newProducts.length,
+      isClient: process.client
+    });
+    
+    // Clear manual refresh flag when products are successfully loaded
+    if (isManuallyRefreshing.value) {
+      console.log('[Products Page] ✅ Clearing manual refresh flag - products loaded successfully');
+      isManuallyRefreshing.value = false;
+    }
+    
     setProducts(newProducts);
     
     // Populate Pinia store from SSR data on first client hydration
@@ -283,15 +350,24 @@ watch(allProducts, (newProducts) => {
       console.log('[Products Page] 💾 Populating Pinia store from watch:', newProducts.length, 'products');
       productsStore.allProducts = newProducts;
       productsStore.lastFetched = Date.now();
+    } else if (process.client && newProducts.length > (productsStore.allProducts.length || 0)) {
+      // Update Pinia store if we got more products (e.g., from refresh)
+      console.log('[Products Page] 💾 Updating Pinia store from watch (refresh):', newProducts.length, 'products');
+      productsStore.allProducts = newProducts;
+      productsStore.lastFetched = Date.now();
     }
   } else if (process.client && (!newProducts || newProducts.length === 0)) {
-    console.warn('[Products Page] ⚠️ allProducts is empty on client!', {
-      value: newProducts,
-      pending: pending.value,
-      error: error.value
-    });
+    // Only log warning if we're not currently loading or manually refreshing
+    if (!pending.value && !isManuallyRefreshing.value) {
+      console.warn('[Products Page] ⚠️ allProducts is empty on client!', {
+        value: newProducts,
+        pending: pending.value,
+        isManuallyRefreshing: isManuallyRefreshing.value,
+        error: error.value
+      });
+    }
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });
 
 onMounted(() => {
   if (!isQueryEmpty.value) updateProductList();
@@ -313,8 +389,8 @@ useHead({
 
 <template>
   <div>
-    <!-- Loading state -->
-    <div v-if="pending" class="min-h-screen w-full flex items-center justify-center">
+    <!-- Loading state - show when pending OR manually refreshing (production fallback) -->
+    <div v-if="pending || isManuallyRefreshing" class="min-h-screen w-full flex items-center justify-center">
       <div class="text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
         <p class="text-gray-600">Loading products...</p>
