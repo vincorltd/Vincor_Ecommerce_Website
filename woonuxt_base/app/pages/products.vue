@@ -10,17 +10,72 @@ const { isQueryEmpty } = useHelpers();
 // Use Pinia products store (plural) for listing page
 const productsStore = useProductsStore();
 
-// Fetch products - Client-side only for speed (uses Pinia cache)
-// CRITICAL: Ensure we always have data, even if cache is empty
+// Fetch products with proper SSR + hydration strategy
+// Uses server-side rendering for first load, then client-side cache for navigation
 const { data: allProducts, pending, error, refresh: refreshProducts } = await useAsyncData(
   'all-products',
   async () => {
     // Force refresh if ?refresh=true query param is present
     const forceRefresh = route.query.refresh === 'true';
+    
+    // On server, fetch directly from API (bypasses Pinia for SSR)
+    if (process.server) {
+      try {
+        const products = await $fetch('/api/products');
+        // Transform products to match component expectations
+        // Use the store's transform method
+        const transformed = products.map((product: any) => {
+          const mainImage = product.images && product.images.length > 0 ? product.images[0] : null;
+          const isPriceZero = (p: any) => {
+            if (!p) return true;
+            const val = parseFloat(p);
+            return isNaN(val) || val === 0;
+          };
+          return {
+            ...product,
+            menuOrder: product.menu_order,
+            featured: product.featured,
+            onSale: product.on_sale,
+            date: product.date_created,
+            averageRating: parseFloat(product.average_rating || '0'),
+            regularPrice: !isPriceZero(product.regular_price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.regular_price}</bdi></span>` : null,
+            salePrice: !isPriceZero(product.sale_price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.sale_price}</bdi></span>` : null,
+            price: !isPriceZero(product.price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.price}</bdi></span>` : null,
+            rawRegularPrice: product.regular_price,
+            rawSalePrice: product.sale_price,
+            rawPrice: product.price,
+            productCategories: { nodes: product.categories || [] },
+            productTags: { nodes: product.tags || [] },
+            productBrands: { nodes: product.brands || [] },
+            image: mainImage ? {
+              sourceUrl: mainImage.src,
+              producCardSourceUrl: mainImage.src,
+              altText: mainImage.alt || product.name,
+              title: mainImage.name || product.name
+            } : null,
+            galleryImages: {
+              nodes: (product.images || []).map((img: any) => ({
+                sourceUrl: img.src,
+                altText: img.alt || product.name,
+                title: img.name || product.name
+              }))
+            },
+            stockStatus: product.stock_status?.toUpperCase() || 'INSTOCK',
+            slug: product.slug,
+            databaseId: product.id,
+            addons: product.addons || []
+          };
+        });
+        return transformed;
+      } catch (err: any) {
+        console.error('[Products Page] ❌ Server fetch failed:', err);
+        return [];
+      }
+    }
+    
+    // On client, use Pinia store (with caching)
     const products = await productsStore.fetchAll(forceRefresh);
     
-    // CRITICAL: If we got empty array, it might be a real error or cache issue
-    // Log it but don't throw - let the UI handle the empty state
     if (!products || products.length === 0) {
       console.warn('[Products Page] ⚠️ No products returned from store');
     }
@@ -28,22 +83,30 @@ const { data: allProducts, pending, error, refresh: refreshProducts } = await us
     return products || [];
   },
   {
-    server: false,  // Client-side only: fast, prevents build OOM, uses Pinia cache
-    lazy: false,    // BLOCKING: Wait for products before showing page (prevents "no products" flash)
-    default: () => [], // Default to empty array instead of undefined
+    server: true,   // SSR/ISR for fast first load with actual content
+    lazy: false,    // CRITICAL: Blocking - wait for data before showing page (no empty shell)
+    default: () => [], // Default to empty array
     getCachedData: (key) => {
       // Skip cache when ?refresh=true query param is present
       if (process.client && route.query.refresh === 'true') {
         return undefined;
       }
       
-      // Check Pinia cache FIRST - will be instant after first load
+      // On server: NEVER use cache - always fetch fresh for SSR
+      // This ensures SSR HTML has the latest data and renders immediately
+      if (process.server) {
+        return undefined;
+      }
+      
+      // On client: Check Pinia cache FIRST - will be instant after first load
+      // This gives instant loading when navigating back to products page
       if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
         console.log('[Products Page] ⚡ Using cached products:', productsStore.allProducts.length);
         return productsStore.allProducts;
       }
       
       // If cache exists but expired, still return it (will refresh in background)
+      // This prevents "no products" flash while data refreshes
       if (process.client && productsStore.allProducts.length > 0) {
         console.log('[Products Page] ⏰ Cache expired, using stale data while refreshing');
         return productsStore.allProducts;

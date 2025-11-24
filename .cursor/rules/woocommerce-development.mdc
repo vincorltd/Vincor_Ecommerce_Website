@@ -1,0 +1,226 @@
+---
+description: WooCommerce REST API development context and best practices. Reference WooCommerce LLMs.txt files for comprehensive API documentation.
+globs: **/*.{ts,tsx,js,jsx,vue,php}
+---
+
+# WooCommerce REST API Development Context
+
+This file provides context for WooCommerce REST API development. For comprehensive documentation, reference WooCommerce's official LLMs.txt files.
+
+## Available WooCommerce Documentation Sources
+
+### Primary Documentation (Recommended)
+- **`https://developer.woocommerce.com/llms.txt`** - Table of contents with title, URL, and description of each document
+  - Use this for navigating the documentation
+  - Contains structured overview of all developer docs
+
+### Comprehensive Documentation (Advanced)
+- **`https://developer.woocommerce.com/llms-full.txt`** - Full Markdown-formatted export of entire documentation
+  - Complete documentation in one file
+  - Use when you need comprehensive API details
+
+**Note:** These files do NOT include:
+- WC REST API documentation (see separate REST API docs)
+- WooCommerce Code Reference (PHP codebase)
+
+## Usage in Cursor
+
+### Method 1: Direct Reference
+When asking questions about WooCommerce API, mention the LLMs.txt URL:
+- "Using WooCommerce documentation from https://developer.woocommerce.com/llms.txt"
+- "Follow WooCommerce guidelines from https://developer.woocommerce.com/llms-full.txt"
+
+### Method 2: @docs Reference
+Use `@docs` in Cursor chat to add these URLs to your project context:
+- Type `@docs` and select the URL
+- Or manually reference: `@https://developer.woocommerce.com/llms.txt`
+
+### Method 3: Copy to Markdown
+On any WooCommerce Developer Docs page, use the Clipboard icon (upper-right) to copy the current page in Markdown format, then paste into your LLM chat.
+
+## Important Notes
+
+⚠️ **@-symbol must be typed manually** - When using `@docs` in Cursor, type the `@` symbol by hand. Copy-pasting breaks the tool's ability to recognize it as a context reference.
+
+## WooCommerce REST API Basics
+
+### Authentication
+WooCommerce REST API uses:
+- **Consumer Key** - Public key (username)
+- **Consumer Secret** - Private key (password)
+- **Basic Authentication** - HTTP Basic Auth or query string parameters
+
+### Base URL Structure
+```
+https://your-site.com/wp-json/wc/v3/
+```
+
+### API Versions
+- **v3** - Current stable version (recommended)
+- **v2** - Legacy version (deprecated)
+- **v1** - Very old version (not recommended)
+
+### Common Endpoints
+
+#### Products
+- `GET /wc/v3/products` - List all products
+- `GET /wc/v3/products/{id}` - Get single product
+- `POST /wc/v3/products` - Create product
+- `PUT /wc/v3/products/{id}` - Update product
+- `DELETE /wc/v3/products/{id}` - Delete product
+
+#### Orders
+- `GET /wc/v3/orders` - List all orders
+- `GET /wc/v3/orders/{id}` - Get single order
+- `POST /wc/v3/orders` - Create order
+- `PUT /wc/v3/orders/{id}` - Update order
+
+#### Customers
+- `GET /wc/v3/customers` - List all customers
+- `GET /wc/v3/customers/{id}` - Get single customer
+- `POST /wc/v3/customers` - Create customer
+- `PUT /wc/v3/customers/{id}` - Update customer
+
+#### Categories
+- `GET /wc/v3/products/categories` - List all categories
+- `GET /wc/v3/products/categories/{id}` - Get single category
+
+### Query Parameters
+
+#### Pagination
+- `page` - Page number (default: 1)
+- `per_page` - Items per page (default: 10, max: 100)
+
+#### Filtering
+- `search` - Search term
+- `status` - Filter by status
+- `featured` - Filter featured products (true/false)
+- `category` - Filter by category ID
+- `orderby` - Sort field (id, date, title, etc.)
+- `order` - Sort direction (asc/desc)
+
+#### Special Parameters
+- `role=all` - Include all user roles (for customers endpoint)
+- `context=edit` - Get full data including meta_data
+- `context=view` - Get public data (default)
+
+### Authentication Examples
+
+#### Query String (GET requests)
+```
+https://site.com/wp-json/wc/v3/products?consumer_key=ck_xxx&consumer_secret=cs_xxx
+```
+
+#### HTTP Basic Auth (POST/PUT/DELETE)
+```javascript
+const response = await fetch(url, {
+  headers: {
+    'Authorization': `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')}`
+  }
+});
+```
+
+#### Using $fetch (Nuxt)
+```typescript
+const products = await $fetch('/wc/v3/products', {
+  headers: {
+    'Authorization': `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')}`
+  }
+});
+```
+
+### Common Patterns
+
+#### Fetch All Products (with pagination)
+```typescript
+const allProducts = [];
+let page = 1;
+let hasMore = true;
+
+while (hasMore) {
+  const products = await $fetch(
+    `${baseUrl}/wc/v3/products?per_page=100&page=${page}&consumer_key=${key}&consumer_secret=${secret}`
+  );
+  
+  if (products.length > 0) {
+    allProducts.push(...products);
+    page++;
+    if (products.length < 100) hasMore = false;
+  } else {
+    hasMore = false;
+  }
+}
+```
+
+#### Search Customers by Email
+```typescript
+const customers = await $fetch(
+  `${baseUrl}/wc/v3/customers?email=${email}&role=all&consumer_key=${key}&consumer_secret=${secret}`
+);
+```
+
+#### Get Product with Full Meta Data
+```typescript
+const product = await $fetch(
+  `${baseUrl}/wc/v3/products/${id}?context=edit&consumer_key=${key}&consumer_secret=${secret}`
+);
+```
+
+### Error Handling
+
+#### Common Status Codes
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request (validation error)
+- `401` - Unauthorized (invalid credentials)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Not Found
+- `500` - Server Error
+
+#### Error Response Format
+```json
+{
+  "code": "woocommerce_rest_invalid_id",
+  "message": "Invalid ID.",
+  "data": {
+    "status": 404
+  }
+}
+```
+
+### Best Practices
+
+1. **Always use HTTPS** - Never send credentials over HTTP
+2. **Store credentials securely** - Use environment variables, never hardcode
+3. **Handle pagination** - Use `per_page=100` and paginate for large datasets
+4. **Use appropriate context** - Use `context=edit` only when needed (slower)
+5. **Cache responses** - Implement caching for frequently accessed data
+6. **Rate limiting** - Be mindful of API rate limits
+7. **Error handling** - Always handle errors gracefully
+8. **Type safety** - Use TypeScript interfaces for API responses
+
+### Data Transformation
+
+WooCommerce REST API uses snake_case, but your frontend may use camelCase:
+
+```typescript
+// Transform REST API to frontend format
+const transformProduct = (product: any) => ({
+  ...product,
+  menuOrder: product.menu_order,
+  regularPrice: product.regular_price,
+  salePrice: product.sale_price,
+  stockStatus: product.stock_status?.toUpperCase(),
+  productCategories: {
+    nodes: product.categories || []
+  }
+});
+```
+
+## References
+
+- [WooCommerce Developer Docs](https://developer.woocommerce.com/)
+- [WooCommerce AI Documentation Guide](https://developer.woocommerce.com/docs/getting-started/ai/)
+- [WooCommerce LLMs.txt (Overview)](https://developer.woocommerce.com/llms.txt)
+- [WooCommerce LLMs.txt (Full)](https://developer.woocommerce.com/llms-full.txt)
+- [WooCommerce REST API Reference](https://woocommerce.github.io/woocommerce-rest-api-docs/)

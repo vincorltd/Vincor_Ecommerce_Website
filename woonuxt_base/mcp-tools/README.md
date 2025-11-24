@@ -64,3 +64,7 @@ const tabs = await wordpress.getProductTabs({ identifier: 'PROD-123' });
 4. Add the export to the server's `index.ts`
 5. Register the tool in `server/mcp/tools/[server].ts`
 
+
+
+
+

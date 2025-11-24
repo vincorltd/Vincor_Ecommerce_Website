@@ -103,13 +103,14 @@ export default defineNuxtConfig({
       '/about-us': { prerender: true },
       '/contact': { prerender: true },
       '/field-service': { prerender: true },
-      // Don't prerender products listing (too large for build memory)
-      // Use SWR caching instead for fast subsequent loads
-      '/products': { swr: 3600 },                    // SWR cache only, no prerender
-      '/products/**': { swr: 3600 },                 // SWR cache for pagination
-      '/product/**': { swr: 3600 },                  // SWR cache for product pages
-      '/product-category/**': { swr: 3600 },         // SWR cache for categories
-      '/categories': { swr: 3600 },                  // SWR cache for categories page
+      // Use ISR (Incremental Static Regeneration) with short revalidation
+      // This ensures content updates within 5 minutes while still being fast
+      // ISR generates pages on-demand and caches them, but revalidates more frequently
+      '/products': { isr: 300 },                     // ISR: regenerate every 5 minutes
+      '/products/**': { isr: 300 },                  // ISR: regenerate every 5 minutes
+      '/product/**': { isr: 300 },                  // ISR: regenerate every 5 minutes (critical for prices)
+      '/product-category/**': { isr: 300 },          // ISR: regenerate every 5 minutes
+      '/categories': { isr: 300 },                  // ISR: regenerate every 5 minutes
       '/checkout/order-received/**': { ssr: false },
       '/order-summary/**': { ssr: false },
       // API routes should NOT be prerendered - they are serverless functions

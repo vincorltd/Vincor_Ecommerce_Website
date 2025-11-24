@@ -1,0 +1,112 @@
+---
+description: Nuxt.js development context and best practices. Reference Nuxt LLMs.txt files for comprehensive framework documentation.
+globs: **/*.{vue,ts,tsx,js,jsx,nuxt.config.ts}
+---
+
+# Nuxt.js Development Context
+
+This file provides context for Nuxt.js development. For comprehensive documentation, reference Nuxt's official LLMs.txt files.
+
+## Available Nuxt Documentation Sources
+
+### Primary Documentation (Recommended)
+- **`https://nuxt.com/llms.txt`** - Structured overview of all documentation pages (~5K tokens)
+  - Use this for most development tasks
+  - Contains essential information and works with standard LLM context windows
+
+### Comprehensive Documentation (Advanced)
+- **`https://nuxt.com/llms-full.txt`** - Full documentation including API references, guides, and deployment (~1M+ tokens)
+  - Use only if you need comprehensive implementation details
+  - Requires AI tools with large context windows (200K+ tokens)
+
+## Usage in Cursor
+
+### Method 1: Direct Reference
+When asking questions about Nuxt, mention the LLMs.txt URL:
+- "Using Nuxt documentation from https://nuxt.com/llms.txt"
+- "Follow Nuxt guidelines from https://nuxt.com/llms-full.txt"
+
+### Method 2: @docs Reference
+Use `@docs` in Cursor chat to add these URLs to your project context:
+- Type `@docs` and select the URL
+- Or manually reference: `@https://nuxt.com/llms.txt`
+
+## Important Notes
+
+⚠️ **@-symbol must be typed manually** - When using `@docs` in Cursor, type the `@` symbol by hand. Copy-pasting breaks the tool's ability to recognize it as a context reference.
+
+## Key Nuxt Concepts
+
+### Core Features
+- **File-based routing** - Routes defined by `app/pages/` directory structure
+- **Auto-imports** - Components and composables auto-imported from respective directories
+- **Server-side rendering** - Built-in SSR capabilities by default
+- **Server engine** - Nitro provides full-stack capabilities
+- **Zero-config TypeScript** - Type-safe code with auto-generated types
+
+### Directory Structure
+- `app/pages/` - File-based routing
+- `app/components/` - Auto-imported components
+- `app/composables/` - Auto-imported composables
+- `server/api/` - Server API routes
+- `server/middleware/` - Server middleware
+- `nuxt.config.ts` - Nuxt configuration
+
+### Data Fetching
+- Use `useAsyncData` for SSR-compatible data fetching
+- Use `useFetch` for simple data fetching
+- Use `$fetch` for direct API calls
+- Consider caching strategies with `getCachedData`
+
+### Rendering Modes
+- **SSR** (default) - Server-side rendering
+- **SSG** - Static site generation with `nuxt generate`
+- **SPA** - Single-page app with `ssr: false`
+- **Hybrid** - Mixed rendering with `routeRules`
+
+### Best Practices
+- Use auto-imports instead of manual imports
+- Leverage TypeScript for type safety
+- Use composables for reusable logic
+- Follow file-based routing conventions
+- Optimize with proper caching strategies
+- Use Nitro server engine for full-stack features
+
+## Common Patterns
+
+### Data Fetching Pattern
+```typescript
+const { data, pending, error } = await useAsyncData(
+  'key',
+  () => $fetch('/api/endpoint'),
+  {
+    server: true,
+    lazy: false,
+    getCachedData: (key) => {
+      // Check cache
+      return cachedData;
+    }
+  }
+);
+```
+
+### Server API Route
+```typescript
+// server/api/example.get.ts
+export default defineEventHandler(async (event) => {
+  return { message: 'Hello from Nuxt API' };
+});
+```
+
+### Component Auto-import
+```vue
+<!-- No import needed - auto-imported from app/components/ -->
+<MyComponent />
+```
+
+## References
+
+- [Nuxt Documentation](https://nuxt.com/docs)
+- [Nuxt LLMs.txt Guide](https://nuxt.com/docs/4.x/guide/ai/llms-txt)
+- [Nuxt LLMs.txt (Overview)](https://nuxt.com/llms.txt)
+- [Nuxt LLMs.txt (Full)](https://nuxt.com/llms-full.txt)

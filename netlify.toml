@@ -17,20 +17,33 @@
 # Headers to prevent caching of API endpoints
 # CRITICAL: This prevents Netlify from caching API responses
 # which was causing datasheet mismatches and stale product data
+# Using multiple cache-busting strategies to ensure Netlify respects no-cache
 [[headers]]
   for = "/api/**"
   [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate, private"
+    Cache-Control = "no-cache, no-store, must-revalidate, private, max-age=0"
     Pragma = "no-cache"
     Expires = "0"
     X-Content-Type-Options = "nosniff"
+    # Force Netlify to vary cache by these headers
+    Vary = "Accept-Encoding, X-Product-ID, X-Product-SKU, X-Cache-Key"
 
-# Specific headers for datasheet endpoint
+# Specific headers for datasheet endpoint - MUST never be cached
 [[headers]]
   for = "/api/products/*/datasheet"
   [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate, private"
+    Cache-Control = "no-cache, no-store, must-revalidate, private, max-age=0"
     Pragma = "no-cache"
     Expires = "0"
     X-Content-Type-Options = "nosniff"
-    Vary = "Accept-Encoding"
+    # Critical: Vary by product ID and SKU to prevent cross-product contamination
+    Vary = "Accept-Encoding, X-Product-ID, X-Product-SKU, X-Cache-Key"
+
+# Headers for product pages - allow ISR but with short cache
+[[headers]]
+  for = "/product/**"
+  [headers.values]
+    # ISR handles caching, but ensure browser doesn't cache too long
+    Cache-Control = "public, s-maxage=300, max-age=60, stale-while-revalidate=600"
+    # Allow revalidation based on product modification
+    Vary = "Accept-Encoding, X-Product-ID"

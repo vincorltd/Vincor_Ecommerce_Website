@@ -21,3 +21,7 @@ export async function getApiEndpoints(): Promise<GetApiEndpointsResponse> {
   return callMCPTool<GetApiEndpointsResponse>('nuxt__get_api_endpoints', {});
 }
 
+
+
+
+

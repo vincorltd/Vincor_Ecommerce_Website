@@ -4,44 +4,85 @@ import { useProductsStore } from '~/stores/products';
 const { siteName, description, shortDescription, siteImage } = useAppConfig();
 const productsStore = useProductsStore();
 
-// Fetch all data - NON-BLOCKING for fast first load
-// Use lazy: true to prevent blocking SSR, which was causing 5-10 second delays
+// Use lightweight /api/products/home endpoint - only fetches what we need
+// This is MUCH faster than fetching all products
 const { data: homeData, pending: homePending } = await useAsyncData(
   'home-data',
   async () => {
-    const allProducts = await productsStore.fetchAll();
+    // Use lightweight endpoint that only fetches featured/popular products
+    const response = await $fetch('/api/products/home');
     
-    // Extract categories
-    const categoriesMap = new Map();
-    allProducts.forEach((product: any) => {
-      if (product.productCategories?.nodes) {
-        product.productCategories.nodes.forEach((cat: any) => {
-          if (!categoriesMap.has(cat.id)) {
-            categoriesMap.set(cat.id, cat);
-          }
-        });
-      }
-    });
+    // Transform REST API products to match component expectations
+    const transformProduct = (product: any) => {
+      const mainImage = product.images && product.images.length > 0 ? product.images[0] : null;
+      
+      const isPriceZero = (p: any) => {
+        if (!p) return true;
+        const val = parseFloat(p);
+        return isNaN(val) || val === 0;
+      };
+      
+      return {
+        ...product,
+        menuOrder: product.menu_order,
+        featured: product.featured,
+        onSale: product.on_sale,
+        date: product.date_created,
+        averageRating: parseFloat(product.average_rating || '0'),
+        regularPrice: !isPriceZero(product.regular_price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.regular_price}</bdi></span>` : null,
+        salePrice: !isPriceZero(product.sale_price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.sale_price}</bdi></span>` : null,
+        price: !isPriceZero(product.price) ? `<span class="woocommerce-Price-amount amount"><bdi>${product.currency_symbol || '$'}${product.price}</bdi></span>` : null,
+        rawRegularPrice: product.regular_price,
+        rawSalePrice: product.sale_price,
+        rawPrice: product.price,
+        productCategories: {
+          nodes: product.categories || []
+        },
+        productTags: {
+          nodes: product.tags || []
+        },
+        productBrands: {
+          nodes: product.brands || []
+        },
+        image: mainImage ? {
+          sourceUrl: mainImage.src,
+          producCardSourceUrl: mainImage.src,
+          altText: mainImage.alt || product.name,
+          title: mainImage.name || product.name
+        } : null,
+        galleryImages: {
+          nodes: (product.images || []).map((img: any) => ({
+            sourceUrl: img.src,
+            altText: img.alt || product.name,
+            title: img.name || product.name
+          }))
+        },
+        stockStatus: product.stock_status?.toUpperCase() || 'INSTOCK',
+        slug: product.slug,
+        databaseId: product.id,
+        addons: product.addons || []
+      };
+    };
     
-    const categories = Array.from(categoriesMap.values()).slice(0, 6);
-    
-    // Get popular products (sorted by menu order)
-    const popular = allProducts
-      .filter((p: any) => p.menuOrder !== undefined && p.menuOrder !== null)
-      .sort((a: any, b: any) => (a.menuOrder || 0) - (b.menuOrder || 0))
-      .slice(0, 5);
-    
-    // Get featured products
-    const featured = allProducts
-      .filter((p: any) => p.featured === true)
-      .slice(0, 5);
-    
-    return { categories, popular, featured };
+    return {
+      categories: response.categories || [],
+      popular: (response.popular || []).map(transformProduct),
+      featured: (response.featured || []).map(transformProduct)
+    };
   },
   { 
-    server: false,  // Client-side only: prevents blocking SSR, faster first paint
-    lazy: true,     // Non-blocking: page renders immediately, data loads in background
+    server: true,   // SSR/ISR for fast initial load with actual content
+    lazy: false,    // CRITICAL: Blocking - wait for data before showing page (no empty shell)
+    // Cache the response for 5 minutes
     getCachedData: (key) => {
+      // On server: NEVER use cache - always fetch fresh for SSR
+      // This ensures SSR HTML has the latest data and renders immediately
+      if (process.server) {
+        return undefined;
+      }
+      
+      // On client: Check if we have cached data in Pinia store (from products page)
+      // This allows instant loading if user visited products page first
       if (process.client && productsStore.isCacheFresh && productsStore.allProducts.length > 0) {
         const allProducts = productsStore.allProducts;
         
